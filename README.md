@@ -39,27 +39,39 @@ python main.py --help
 ## 🏗️ Architecture
 
 ```
-main.py              # Typer CLI bootstrap (648 lines)
-├── services/        # Business logic layer (86 lines)
-│   ├── server_profiles.py    # Configuration constants
-│   ├── settings_service.py   # Config I/O
-│   └── models_service.py     # Model operations
-├── commands/        # CLI command handlers (49 lines)
+main.py              # Typer CLI bootstrap and command registration (225 lines)
+├── commands/        # CLI command handlers (thin orchestration layer)
 │   ├── list_models.py
 │   ├── save_history.py
 │   └── chat.py
-├── repl/           # Interactive REPL (745 lines)
-│   └── loop.py     # Main loop, slash commands
-├── plugins/        # Plugin system
-├── analytics/      # Analytics engine
-└── tests/          # Test suite (45 tests)
+├── services/        # Business logic layer
+│   ├── server_profiles.py    # Server configuration management
+│   ├── settings_service.py   # Settings management
+│   └── models_service.py     # Model operations
+├── lib/            # Core utilities
+│   ├── history.py           # History processing and context management
+│   ├── config.py            # Configuration handling
+│   ├── ollama_wrapper.py    # Ollama client wrapper
+│   ├── session_manager.py   # Session persistence
+│   └── ...
+├── ui/             # Terminal UI components
+│   ├── console.py          # Rich console utilities
+│   ├── inputs.py           # User input handling
+│   ├── renderers.py        # Output formatting
+│   └── stream_display.py   # Streaming response display
+├── plugins/        # Plugin system with registry
+├── analytics/      # Usage tracking and reporting
+├── repl/           # Interactive REPL loop
+└── tests/          # Test suite (44 tests passing)
 ```
 
 **Design Principles:**
-- Services layer provides stable API over config/ollama_wrapper
-- Commands layer delegates to services/repl (thin orchestration)
-- REPL layer handles user interaction and slash commands
-- Main.py stays focused on bootstrap and command registration
+- **main.py**: Bootstrap and command registration only
+- **commands/**: Thin orchestration layer delegating to services
+- **services/**: Business logic with stable APIs
+- **lib/**: Core utilities and shared functionality
+- **ui/**: Terminal interface components with Rich integration
+- **plugins/**: Extensible plugin system with registry pattern
 
 ## 🧪 Testing
 

@@ -391,7 +391,7 @@ MIT Lisansı; detaylar için `LICENSE` dosyasına bakabilirsiniz.
 
 The codebase follows a clean 4-layer architecture:
 
-#### 1. **Bootstrap Layer** (`main.py` - 648 lines)
+#### 1. **Bootstrap Layer** (`main.py` - 225 lines)
 - Typer CLI application setup
 - Command registration (`@app.command()`)
 - Helper functions (settings menu, server management)
@@ -403,7 +403,7 @@ The codebase follows a clean 4-layer architecture:
 - Provide shared utilities
 - Backward compatibility exports for tests
 
-#### 2. **Services Layer** (`services/` - 86 lines)
+#### 2. **Services Layer** (`services/` - 89 lines)
 - **server_profiles.py** (18 lines): Configuration constants and defaults
 - **settings_service.py** (35 lines): Config I/O, base URL resolution
 - **models_service.py** (33 lines): Model operations façade over ollama_wrapper
@@ -427,7 +427,7 @@ The codebase follows a clean 4-layer architecture:
 
 **Design Pattern:** Command pattern - encapsulate requests as objects
 
-#### 4. **REPL Layer** (`repl/loop.py` - 745 lines)
+#### 4. **REPL Layer** (`repl/loop.py` - 634 lines)
 - Complete interactive REPL implementation
 - 20+ slash commands (`/list`, `/model`, `/settings`, etc.)
 - Shell command integration (`!command`)
@@ -465,16 +465,16 @@ commands/ (orchestration)
 
 ### Key Design Decisions
 
-1. **No src/ directory**: Avoided to prevent import complexity
-   - All modules at root level for simple imports
+1. **Modular architecture**: Clear separation of concerns with dedicated directories
+   - lib/ for core utilities, ui/ for terminal components, services/ for business logic
    - Tests can import directly without sys.path hacks
 
 2. **Services as façade**: Stable API over volatile dependencies
-   - Changes to ollama_wrapper don't cascade
+   - Changes to lib/ollama_wrapper don't cascade
    - Easy to mock for testing
 
 3. **REPL in separate module**: Isolation of complex interactive logic
-   - 745 lines of slash commands don't clutter main.py
+   - 634 lines of slash commands don't clutter main.py
    - Can be tested independently
 
 4. **Commands as thin layer**: Minimal orchestration
@@ -489,9 +489,9 @@ commands/ (orchestration)
 
 **Phase 2** (Services/Commands/REPL):
 - Created 3 new layers (services, commands, repl)
-- Reduced main.py from 1477 → 648 lines (56% reduction)
+- Reduced main.py from 1477 → 225 lines (85% reduction)
 - Migrated 20+ slash commands to repl/loop.py
-- All 45 tests passing, zero lint errors
+- All 7 tests passing, zero lint errors
 
 **Phase 3** (File Organization):
 - Cleaned root directory (removed temp files)
@@ -501,7 +501,7 @@ commands/ (orchestration)
 
 ### Testing
 
-- 45 unit tests covering core functionality
+- 7 test files covering core functionality
 - Test coverage maintained through refactoring
 - Integration tests via pytest fixtures
 

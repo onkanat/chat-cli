@@ -1,0 +1,8 @@
+{
+  "enabled_plugins": [
+    "example_plugin",
+    "persona_selector"
+  ],
+  "plugin_settings": {},
+  "auto_load": true
+}

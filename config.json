@@ -1,0 +1,5 @@
+{
+  "default_model": "qwen3-vl:2b",
+  "system_message": "Sen uzman bir programcısın. Kod yazma, hata ayıklama ve optimizasyon konularında yardımcı ol.",
+  "max_tokens": 4096
+}

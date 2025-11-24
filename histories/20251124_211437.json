@@ -1,0 +1,24 @@
+{
+  "session_id": "20251124_211437",
+  "created_at": "2025-11-24T21:14:37.022888",
+  "custom_name": "test01",
+  "model_used": "qwen3-vl:2b",
+  "persona": null,
+  "message_count": 3,
+  "history": [
+    {
+      "role": "user",
+      "text": "merhaba;"
+    },
+    {
+      "role": "assistant",
+      "text": "Merhaba! Benim adım [Assistant] ve size yardımcı olabilirim. Nasıl yardımcı olabilirim? 😊"
+    },
+    {
+      "role": "shell",
+      "command": "ls -l",
+      "output": "total 64\n-rw-r--r--@  1 hakankilicaslan  staff  2489 Nov 22 11:32 README.md\ndrwxr-xr-x   3 hakankilicaslan  staff    96 Nov 24 20:59 __pycache__\ndrwxr-xr-x   6 hakankilicaslan  staff   192 Nov 22 11:32 analytics\n-rw-r--r--   1 hakankilicaslan  staff   456 Nov 24 21:03 analytics.json\n-rw-------   1 hakankilicaslan  staff    91 Nov 24 21:03 chat_history.txt\ndrwxr-xr-x   6 hakankilicaslan  staff   192 Nov 22 11:32 commands\n-rw-r--r--   1 hakankilicaslan  staff    36 Nov 24 21:01 config.json\ndrwxr-xr-x   7 hakankilicaslan  staff   224 Nov 22 11:32 docs\ndrwxr-xr-x   3 hakankilicaslan  staff    96 Nov 24 20:59 histories\ndrwxr-xr-x  13 hakankilicaslan  staff   416 Nov 22 11:32 lib\n-rw-r--r--   1 hakankilicaslan  staff  6023 Nov 24 20:59 main.py\n-rw-r--r--   1 hakankilicaslan  staff    97 Nov 24 21:01 plugin_config.json\ndrwxr-xr-x   9 hakankilicaslan  staff   288 Nov 22 11:32 plugins\ndrwxr-xr-x   4 hakankilicaslan  staff   128 Nov 22 11:32 repl\n-rw-r--r--   1 hakankilicaslan  staff    39 Nov 22 11:32 requirements.txt\ndrwxr-xr-x   6 hakankilicaslan  staff   192 Nov 22 11:32 services\ndrwxr-xr-x  10 hakankilicaslan  staff   320 Nov 22 11:32 tests\ndrwxr-xr-x   9 hakankilicaslan  staff   288 Nov 22 12:01 ui\n",
+      "timestamp": "2025-11-24T21:03:05.424427"
+    }
+  ]
+}

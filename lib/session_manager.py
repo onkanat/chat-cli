@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import uuid
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 SESSIONS_DIR = Path("histories")
 
@@ -26,8 +30,8 @@ def save_history(
     try:
         payload = json.dumps(history, ensure_ascii=False, indent=2)
         path.write_text(payload, encoding="utf-8")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Failed to save history: {e}")
 
 
 def load_history(path: Path | str = Path("chat_history.json")) -> List[Dict[str, Any]]:
@@ -46,7 +50,8 @@ def load_history(path: Path | str = Path("chat_history.json")) -> List[Dict[str,
         content = path.read_text(encoding="utf-8")
         data = json.loads(content)
         return data
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to load history: {e}")
         return []
 
 
@@ -65,12 +70,14 @@ def create_session(
         persona: Optional persona identifier
         
     Returns:
-        Session ID (timestamp-based)
+        Session ID (timestamp-based + uuid suffix)
     """
     ensure_sessions_dir()
 
-    # Generate session ID from timestamp
-    session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Generate session ID from timestamp + small UUID for uniqueness
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    uid = uuid.uuid4().hex[:6]
+    session_id = f"{timestamp}_{uid}"
 
     # Create session metadata
     session_data = {
@@ -88,7 +95,11 @@ def create_session(
     try:
         payload = json.dumps(session_data, ensure_ascii=False, indent=2)
         session_file.write_text(payload, encoding="utf-8")
-    except Exception:
+        logger.info(f"Created session {session_id}")
+    except Exception as e:
+        logger.error(f"Failed to create session: {e}")
+        # Proceeding despite error to return ID, though data might be lost? 
+        # Best effort.
         pass
 
     return session_id

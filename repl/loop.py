@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import shlex
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -21,13 +22,20 @@ from services.settings_service import determine_base_url, load_config, save_conf
 from services.models_service import list_models, set_current_model, load_model, delete_model
 from ui.settings_menus import settings_menu
 
+# Enhanced input handler loading
+input_handler = None
 try:
-    import lib.input_handler as input_handler  # type: ignore
-except Exception:
+    import lib.input_handler as input_handler_mod
+    input_handler = input_handler_mod
+except ImportError:
     try:
-        import input_handler  # type: ignore
-    except Exception:  # pragma: no cover - optional enhancement
-        input_handler = None  # type: ignore
+        import input_handler as input_handler_mod
+        input_handler = input_handler_mod
+    except ImportError:
+        # Silently fail only if truly missing, but maybe log it if we had logging setup here
+        pass
+except Exception as e:
+    ui_mod.console.print(f"[yellow]Warning: Failed to load input handler: {e}[/yellow]")
 
 
 CURRENT_MODEL: str | None = None
@@ -35,9 +43,15 @@ CURRENT_MODEL: str | None = None
 
 def sanitize_prompt(s: str) -> str:
     """Remove slash commands and traceback noise from prompt."""
-    traceback_indicators = ("Traceback (most recent...", "File \"", ")\n ")
+    if not s:
+        return ""
+        
+    # Check for traceback indicators first to preserve them
+    traceback_indicators = ("Traceback (most recent...", 'File "', ")\n ")
     if any(indicator in s for indicator in traceback_indicators):
         return s
+
+    # Remove lines starting with slash
     lines = [ln for ln in s.splitlines() if not ln.lstrip().startswith("/")]
     cleaned = "\n".join(lines).strip()
     return cleaned
@@ -106,13 +120,16 @@ def run_chat(
         if input_handler is not None:
             command_history = input_handler.CommandHistory()
             input_handler.setup_readline(command_history)
-    except Exception:
-        pass
+    except Exception as e:
+        ui_mod.console.print(f"[yellow]Warning: Input handler setup failed: {e}[/yellow]")
 
     # Get available models and handle selection
-    models = list_models()
+    models = ow.list_models()  # Use wrapper's list_models directly/safely
     if not models:
         ui_mod.console.print("[yellow]No models found. Please install a model first.[/yellow]")
+        # We don't return here immediately to allow slash commands to work even if no models? 
+        # But existing logic returns. I'll keep return but maybe user wants to config first?
+        # Let's keep strict return for now to match original behavior.
         return
 
     # Model selection menu

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Iterator
 
 from rich.console import Console
 
 import lib.history as history_mod
 import lib.ollama_wrapper as ow
+from lib.ollama_wrapper import OllamaError
 
 console = Console()
 
@@ -104,10 +105,26 @@ def __getattr__(name: str):
 
 
 def run_shell_command(command: str) -> str:
+    """Execute shell command with better security and error handling."""
+    if not command.strip():
+        return ""
+    
+    # Basic security check - this is still a shell, so we can't block everything,
+    # but we can prevent obvious accidents or malicious pastes if desired.
+    # For now, we'll just ensure it's not empty and handle timeouts.
+    
     try:
-        completed = subprocess.run(command, shell=True, capture_output=True, text=True)
+        completed = subprocess.run(
+            command, 
+            shell=True, 
+            capture_output=True, 
+            text=True,
+            timeout=60  # 60s timeout
+        )
         out = completed.stdout or completed.stderr
         return out
+    except subprocess.TimeoutExpired:
+        return "Error: Command timed out after 60 seconds."
     except Exception as e:
         return f"Error running command: {e}"
 
@@ -118,7 +135,7 @@ def get_model_reply_stream(
     max_output_chars: int = history_mod.DEFAULT_MAX_OUTPUT_CHARS,
     system_message: str = "",
     model_name: str | None = None,
-):
+) -> Iterator[str]:
     if isinstance(prompt_or_history, list):
         history = prompt_or_history
         full_prompt = history_mod.build_model_prompt_from_history_full(
@@ -168,6 +185,8 @@ def get_model_reply_stream(
         # If no chunks received, yield error message
         if chunk_count == 0:
             yield "[No response from model]"
+    except OllamaError as e:
+        yield f"[Ollama Error: {e}]"
     except Exception as e:
         yield f"[Stream error: {e}]"
 
@@ -219,6 +238,9 @@ def get_model_reply_sync(
             
             if result and not result.startswith("Error:"):
                 return result.strip()
+            return result
+    except OllamaError as e:
+        return f"[Ollama Error: {e}]"
     except Exception:
         pass
 

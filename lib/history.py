@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import uuid
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # Defaults kept here so tests can import functions from main that delegate
 DEFAULT_MAX_CONTEXT_TOKENS = int(
@@ -10,6 +14,7 @@ DEFAULT_MAX_OUTPUT_CHARS = int(
     __import__("os").getenv("OLLAMA_MAX_OUTPUT_CHARS", "500")
 )
 
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Token Management (Core Responsibility)

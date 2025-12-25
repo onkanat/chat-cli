@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import readline
+from pathlib import Path
 from typing import List, Optional
 
 # Flag to indicate if enhanced input is available
@@ -19,10 +20,9 @@ class CommandHistory:
         self.temp_input = ""
 
     def add(self, command: str) -> None:
-        """Add command to history."""
+        """Add command to history (avoid exact consecutive duplicates)."""
         if not command.strip():
             return
-        # Remove duplicates of consecutive commands
         if self.history and self.history[-1] == command:
             return
         self.history.append(command)
@@ -55,43 +55,36 @@ class CommandHistory:
 
 
 def setup_readline(history: CommandHistory) -> None:
-    """Configure readline for arrow key navigation."""
-
-    # Load history from file if it exists
+    """
+    Load persisted history from chat_history.txt into CommandHistory and readline.
+    Avoid double-adding by using CommandHistory as the single source of truth.
+    """
     try:
-        readline.read_history_file("chat_history.txt")
-        # Convert readline history to our format
-        for i in range(readline.get_current_history_length()):
-            item = readline.get_history_item(i + 1)  # readline is 1-indexed
-            if item:
-                history.add(item.strip())
+        path = Path("chat_history.txt")
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                history.add(line.strip())
+
+        # Sync to readline_clear & populate with cleaned history
+        try:
+            readline.clear_history()
+            for cmd in history.history:
+                readline.add_history(cmd)
+        except Exception:
+            pass
     except Exception:
         pass
 
 
 def enhanced_input(prompt: str, history: CommandHistory) -> str:
     """Get input with enhanced history navigation."""
-
     try:
-        # Use readline for better input handling
-        import readline
-
         line = input(prompt)
-
-        # Add to history if not empty
         if line.strip():
             history.add(line.strip())
-
-        # Save history to file
-        try:
-            # Update readline history
-            readline.add_history(line)
-            readline.write_history_file("chat_history.txt")
-        except Exception:
-            pass
-
+            # persist and sync centrally
+            save_history_to_file(history)
         return line
-
     except (EOFError, KeyboardInterrupt):
         return ""
     except Exception:
@@ -100,125 +93,81 @@ def enhanced_input(prompt: str, history: CommandHistory) -> str:
 
 def get_multiline_input(prompt: str, continuation_prompt: str = ">>> ") -> str:
     """Get multi-line input with Shift+Enter support."""
-    lines = []
-
+    lines: List[str] = []
     try:
-        # First line
         line = input(prompt)
-        if line.strip():  # Only add non-empty lines
+        if line.strip():
             lines.append(line)
-
-        # Continue reading until empty line or Ctrl+D
         while True:
             try:
                 line = input(continuation_prompt)
                 if line.strip() == "" and len(lines) > 1:
-                    # Empty line ends multi-line input
                     break
-                if line.strip():  # Only add non-empty lines
+                if line.strip():
                     lines.append(line)
             except EOFError:
-                # Ctrl+D ends input
                 break
-
     except (EOFError, KeyboardInterrupt):
         return ""
-
-    # Join lines with newlines
     result = "\n".join(lines).strip()
-
-    # Show line count if multi-line
     if len(lines) > 1:
         print(f"[dim]📝 Sent {len(lines)} lines[/dim]")
-
     return result
 
 
 def enhanced_input_multiline(prompt: str, history: CommandHistory) -> str:
     """Enhanced input with multi-line support and history."""
-
     try:
-        # Get first line
         line = input(prompt)
-
-        # If line ends with \, it's multi-line mode
         if line.rstrip().endswith("\\"):
-            # Remove the \ and start multi-line mode
-            base_line = line.rstrip()[:-1]  # Remove trailing \
+            base_line = line.rstrip()[:-1]
             lines = [base_line]
-
             print("[dim]💡 Multi-line mode: Enter continues, empty line submits[/dim]")
-
             while True:
                 try:
                     continuation = input(">>> ")
                     if continuation.strip() == "" and len(lines) > 1:
-                        # Empty line ends multi-line input
                         break
-                    if continuation.strip():  # Only add non-empty lines
+                    if continuation.strip():
                         lines.append(continuation)
                 except EOFError:
-                    # Ctrl+D ends input
                     break
-
             result = "\n".join(lines).strip()
             if len(lines) > 1:
                 print(f"[dim]📝 Sent {len(lines)} lines[/dim]")
         else:
-            # Single line mode
             result = line
 
-        # Add to history if not empty
         if result.strip():
             history.add(result.strip())
-
-        # Update readline history
-        try:
-            import readline
-
-            readline.add_history(result)
-            readline.write_history_file("chat_history.txt")
-        except Exception:
-            pass
+            save_history_to_file(history)
 
         return result
-
     except (EOFError, KeyboardInterrupt):
         return ""
     except Exception:
-        # Fallback to basic input
+        # final fallback
         try:
             line = input(prompt)
             if line.strip():
                 history.add(line.strip())
-            return line
-        except (EOFError, KeyboardInterrupt):
-            return ""
-    except Exception:
-        # Fallback to basic input
-        try:
-            line = input(prompt)
-            if line.strip():
-                history.add(line.strip())
-            return line
-        except (EOFError, KeyboardInterrupt):
-            return ""
-    except Exception:
-        # Fallback to basic input
-        try:
-            line = input(prompt)
-            if line.strip():
-                history.add(line.strip())
+                save_history_to_file(history)
             return line
         except (EOFError, KeyboardInterrupt):
             return ""
 
 
 def save_history_to_file(history: CommandHistory) -> None:
-    """Save command history to file."""
+    """Save command history to file and keep readline in sync."""
     try:
-        with open("chat_history.txt", "w") as f:
-            for cmd in history.history:
-                f.write(f"{cmd}\n")
+        path = Path("chat_history.txt")
+        path.write_text("\n".join(history.history) + ("\n" if history.history else ""), encoding="utf-8")
+    except Exception:
+        pass
+
+    try:
+        readline.clear_history()
+        for cmd in history.history:
+            readline.add_history(cmd)
     except Exception:
         pass

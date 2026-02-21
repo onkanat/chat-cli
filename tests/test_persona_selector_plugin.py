@@ -27,6 +27,7 @@ def _setup_plugin(tmp_path: Path) -> PersonaSelectorPlugin:
     plugin.configure_storage(
         persona_dir=tmp_path / "system_prompts",
         config_path=tmp_path / "config.json",
+        system_prompts_path=None,  # force legacy mode (no skills source)
         reset=True,
     )
     return plugin

@@ -3,6 +3,10 @@
     "example_plugin",
     "persona_selector"
   ],
-  "plugin_settings": {},
+  "plugin_settings": {
+    "persona_selector": {
+      "system_prompts_path": "/Users/hakankilicaslan/Git/system_prompts"
+    }
+  },
   "auto_load": true
 }

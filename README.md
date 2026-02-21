@@ -38,7 +38,7 @@ python main.py --help
 
 ## 🏗️ Architecture
 
-```
+```text
 main.py              # Typer CLI bootstrap and command registration (225 lines)
 ├── commands/        # CLI command handlers (thin orchestration layer)
 │   ├── list_models.py
@@ -66,12 +66,42 @@ main.py              # Typer CLI bootstrap and command registration (225 lines)
 ```
 
 **Design Principles:**
+
 - **main.py**: Bootstrap and command registration only
 - **commands/**: Thin orchestration layer delegating to services
 - **services/**: Business logic with stable APIs
 - **lib/**: Core utilities and shared functionality
 - **ui/**: Terminal interface components with Rich integration
 - **plugins/**: Extensible plugin system with registry pattern
+
+## 🔗 Companion Project: system_prompts
+
+> [!NOTE]
+> **`persona_selector` plugin**, aynı geliştirici tarafından yönetilen
+> [`system_prompts`](../system_prompts) projesine **canlı bağlantıyla** bağlıdır.
+
+- **Persona tanımları** → `../system_prompts/skills/<id>/SKILL.md`
+- **Derlenmiş prompts** → `../system_prompts/prompts.json`
+- **Etiket haritası** → `../system_prompts/persona_map.yaml`
+- **Bağlantı config** → `plugin_config.json` » `plugin_settings.persona_selector.system_prompts_path`
+
+**Bağımlılık notu:** `system_prompts` sadece `PyYAML>=6.0` gerektirir.
+Bu bağımlılık `chat-cli/requirements.txt`'e eklenmiştir; iki proje **ayrı sanal ortam** kullanır, çakışma yoktur.
+
+**Yeni persona sonrası güncelleme akışı:**
+
+```bash
+# system_prompts projesinde:
+cd ../system_prompts
+python scripts/skills_to_json.py     # prompts.json + persona_map.yaml günceller
+
+# chat-cli'da (çalışırken bile):
+/persona reload                       # değişiklikleri anında yükler
+```
+
+> [!WARNING]
+> `plugin_config.json` içindeki `system_prompts_path` değeri mutlak yol içerir.
+> `system_prompts` reposunu farklı bir klasöre taşırsanız bu değeri güncellemeyi unutmayın.
 
 ## 🧪 Testing
 
@@ -86,6 +116,7 @@ pytest --cov=. tests/
 ## 🚀 Recent Changes (v0.3.0-beta)
 
 **Phase 2 Refactoring** - Modular architecture:
+
 - Extracted services/commands/repl layers
 - Reduced main.py from 1477 → 648 lines (56%)
 - Clean separation of concerns

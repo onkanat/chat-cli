@@ -1,25 +1,20 @@
+program bir chat-cli arayüzünde "/calc" ile çağrılıyor. yani bir plugin.
 /quit
-/persona
-AC-DC Masa üstü güç ayarlı kaynaklarından bahset.
-Devre Tasarımın her bir  bölümünü ayrı ayrı çiz ve BOM oluştur.
-/help
-/settings
-│            +-------------------+      +---------------------+      +------------------+                        │
-│  220V AC ──►│ 1. Rectifier (BR) │────►│ 2. DC Bus (Cbus)    │────►│ 3. Flyback       │───► 0‑30V/3A            │
-│            │   (4×1N4007)    │      │ 220µF + 10µF (X7R)  │      │    SMPS          │                          │
-│            +-------------------+      +---------------------+      +------------------+                        │
-│                                                                     ▲                                          │
-│                                                                     │                                          │
-│                                                             5V/2A                                              │
-│                                                             (LM317 Reg.)  <-- Ince ayar
+/file read r2r.md
+r2r.md de anlatılan projeyi özetle.
+/file read r2r.md dosyasını özetle
+r2r.md dosyasını özetle
 /quit
-merhaba;
+/file read r2r.md
+r2r.md dosyayı özetle
+/file read r2r.md
+r2r.md dosyayı özetle
 /quit
-│            +-------------------+      +---------------------+      +------------------+                        │
-│  220V AC ──►│ 1. Rectifier (BR) │────►│ 2. DC Bus (Cbus)    │────►│ 3. Flyback       │───► 0‑30V/3A            │
-│            │   (4×1N4007)    │      │ 220µF + 10µF (X7R)  │      │    SMPS          │                          │
-│            +-------------------+      +---------------------+      +------------------+                        │
-│                                                                     ▲                                          │
-│                                                                     │                                          │
-│                                                             5V/2A                                              │
-/quit
+/plugin-load file_plugin
+/file read r2r.md
+r2r.md dosyayı özetle
+/exit
+/file read r2r.md
+Bu okuduğun r2r.md dosyasını özetle
+/file read README.md
+README.md dosyasını özetle

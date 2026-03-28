@@ -4,7 +4,7 @@ import re
 
 # Env defaults
 DEFAULT_MAX_OUTPUT_CHARS = int(
-    __import__("os").getenv("OLLAMA_MAX_OUTPUT_CHARS", "500")
+    __import__("os").getenv("OLLAMA_MAX_OUTPUT_CHARS", "4000")
 )
 
 
@@ -78,7 +78,7 @@ def is_safe_to_drop(command: str, output: str) -> bool:
     cmd_lower = command.lower().strip()
 
     # Info commands that don't need model analysis
-    info_commands = ["ls", "dir", "cat", "echo", "pwd", "date", "whoami", "id"]
+    info_commands = ["ls", "dir", "pwd", "date", "whoami", "id"]
 
     # Check if command starts with info command
     for cmd in info_commands:

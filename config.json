@@ -1,5 +1,5 @@
 {
-  "default_model": "qwen3.5:9b",
+  "default_model": "nemotron-cascade-2:30b",
   "system_message": "Sen analitik bir düşünecisin. Sorunları mantıksal adımlarla çöz ve açıklamalarını net yap.",
   "max_tokens": 8192,
   "ollama_servers": {
@@ -16,7 +16,7 @@
     }
   },
   "persona": {
-    "current_persona": "electronics_analog_dijital_uzmani",
-    "last_updated": "2026-03-28T04:42:46.517668+00:00"
+    "current_persona": "python_yapay_zeka",
+    "last_updated": "2026-03-28T18:05:42.419953+00:00"
   }
 }

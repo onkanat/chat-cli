@@ -1,7 +1,8 @@
 {
   "enabled_plugins": [
     "example_plugin",
-    "persona_selector"
+    "persona_selector",
+    "file_plugin"
   ],
   "plugin_settings": {
     "persona_selector": {

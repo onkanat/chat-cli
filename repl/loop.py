@@ -623,8 +623,17 @@ def run_chat(
                     live.update(Group(Panel(Markdown(buffer), title="Assistant", expand=True), progress))
 
                 estimated_tokens = char_count // 4
+                
+                # Gerçek gönderilen token sayısını daha doğru tahmin et (trim edilmiş geçmişe göre)
+                trimmed_history = history_mod.trim_history_for_tokens(history, max_tokens=max_context_tokens)
+                context_text = system_message + " ".join(
+                    str(item.get("text") or item.get("output", "")) 
+                    for item in trimmed_history
+                )
+                total_prompt_tokens = history_mod.estimate_tokens(context_text)
+                
                 ui_mod.display_token_usage(
-                    prompt_tokens=len(prompt) // 4,
+                    prompt_tokens=total_prompt_tokens,
                     response_tokens=estimated_tokens,
                     max_tokens=max_context_tokens,
                 )

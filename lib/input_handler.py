@@ -119,7 +119,38 @@ def enhanced_input_multiline(prompt: str, history: CommandHistory) -> str:
     """Enhanced input with multi-line support and history."""
     try:
         line = input(prompt)
-        if line.rstrip().endswith("\\"):
+
+        # Check for bulk paste (multiple lines arriving instantly)
+        lines = [line]
+        pasted = False
+        try:
+            import sys
+            import select
+            if sys.platform == 'win32':
+                import msvcrt
+                import time
+                time.sleep(0.1)
+                while msvcrt.kbhit():
+                    lines.append(input())
+                    pasted = True
+                    time.sleep(0.1)
+            else:
+                while True:
+                    # 0.15s timeout to correctly handle terminal chunked pastes
+                    # (some terminals pause briefly when pasting large blocks >1024 bytes)
+                    rlist, _, _ = select.select([sys.stdin], [], [], 0.15)
+                    if rlist:
+                        lines.append(input())
+                        pasted = True
+                    else:
+                        break
+        except Exception:
+            pass
+
+        if pasted:
+            result = "\n".join(lines).strip()
+            print(f"[dim]📝 Detected paste of {len(lines)} lines[/dim]")
+        elif line.rstrip().endswith("\\"):
             base_line = line.rstrip()[:-1]
             lines = [base_line]
             print("[dim]💡 Multi-line mode: Enter continues, empty line submits[/dim]")

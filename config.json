@@ -1,6 +1,6 @@
 {
-  "default_model": "devstral-small-2:latest",
-  "system_message": "Sen uzman bir programcısın. Kod yazma, hata ayıklama ve optimizasyon konularında yardımcı ol.",
+  "default_model": "qwen3.5:9b",
+  "system_message": "Sen analitik bir düşünecisin. Sorunları mantıksal adımlarla çöz ve açıklamalarını net yap.",
   "max_tokens": 8192,
   "ollama_servers": {
     "active": "remote",
@@ -16,7 +16,7 @@
     }
   },
   "persona": {
-    "current_persona": "engineer",
-    "last_updated": "2025-12-25T16:04:04.236366+00:00"
+    "current_persona": "electronics_analog_dijital_uzmani",
+    "last_updated": "2026-03-28T04:42:46.517668+00:00"
   }
 }

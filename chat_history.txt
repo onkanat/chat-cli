@@ -1,4 +1,3 @@
-program bir chat-cli arayüzünde "/calc" ile çağrılıyor. yani bir plugin.
 /quit
 /file read r2r.md
 r2r.md de anlatılan projeyi özetle.
@@ -18,3 +17,4 @@ r2r.md dosyayı özetle
 Bu okuduğun r2r.md dosyasını özetle
 /file read README.md
 README.md dosyasını özetle
+/exit

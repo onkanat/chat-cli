@@ -1,7 +1,7 @@
 {
-  "default_model": "nemotron-cascade-2:30b",
-  "system_message": "Sen analitik bir düşünecisin. Sorunları mantıksal adımlarla çöz ve açıklamalarını net yap.",
-  "max_tokens": 8192,
+  "default_model": "gemma3:latest",
+  "system_message": "Sen hızlı ve akıcı düşünen mühendislik araçlarını iyi kullanan bir modelsin",
+  "max_tokens": 16384,
   "ollama_servers": {
     "active": "remote",
     "profiles": {
@@ -17,6 +17,6 @@
   },
   "persona": {
     "current_persona": "python_yapay_zeka",
-    "last_updated": "2026-03-28T18:05:42.419953+00:00"
+    "last_updated": "2026-04-05T09:25:45.209217+00:00"
   }
 }

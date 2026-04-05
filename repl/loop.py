@@ -452,6 +452,7 @@ def run_chat(
                                         new_session_id,
                                     )
                                 )
+                                history.clear()
                             elif choice == "2":
                                 sessions = history_mod.list_sessions()
                                 if not sessions:
@@ -514,6 +515,7 @@ def run_chat(
                                     new_session_id,
                                 )
                             )
+                            history.clear()
                         elif sub_cmd == "list":
                             sessions = history_mod.list_sessions()
                             if not sessions:

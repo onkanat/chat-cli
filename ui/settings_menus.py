@@ -218,7 +218,7 @@ def settings_menu(config: dict) -> dict:
     )
     ui_mod.console.print(
         "[dim]Current Max Tokens:[/dim] "
-        f"[cyan]{current_max_tokens}[/cyan] (100-8192)"
+        f"[cyan]{current_max_tokens}[/cyan] (100-16384)"
     )
     ui_mod.console.print(
         "[dim]Current Theme:[/dim] "
@@ -274,18 +274,18 @@ def settings_menu(config: dict) -> dict:
             try:
                 new_tokens = int(
                     input(
-                        f"Enter max tokens (100-8192) [current: {current_max_tokens}]: "
+                        f"Enter max tokens (100-16384) [current: {current_max_tokens}]: "
                     ).strip()
                     or str(current_max_tokens)
                 )
-                if 100 <= new_tokens <= 8192:
+                if 100 <= new_tokens <= 16384:
                     config["max_tokens"] = new_tokens
                     ui_mod.console.print(
                         f"[green]✓ Max tokens set to:[/green] [white]{new_tokens}[/white]"
                     )
                 else:
                     ui_mod.console.print(
-                        "[red]❌ Max tokens must be between 100 and 8192[/red]"
+                        "[red]❌ Max tokens must be between 100 and 16384[/red]"
                     )
             except ValueError:
                 ui_mod.console.print("[red]❌ Invalid token value[/red]")

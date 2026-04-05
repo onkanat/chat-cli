@@ -199,6 +199,156 @@
       "messages": 0,
       "tokens": 0,
       "commands": []
+    },
+    {
+      "id": "20260402_174212",
+      "start_time": "2026-04-02T17:42:12.389817",
+      "model": "qwen3.5:35b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260402_183653",
+      "start_time": "2026-04-02T18:36:53.801657",
+      "model": "qwen3.5:35b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260402_184423",
+      "start_time": "2026-04-02T18:44:23.709628",
+      "model": "qwen3.5:35b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": [],
+      "end_time": "2026-04-02T18:46:47.540554",
+      "duration": 143.830926
+    },
+    {
+      "id": "20260402_184652",
+      "start_time": "2026-04-02T18:46:52.619252",
+      "model": "qwen3.5:35b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260402_212000",
+      "start_time": "2026-04-02T21:20:00.377612",
+      "model": "qwen3.5:35b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260402_213424",
+      "start_time": "2026-04-02T21:34:24.097650",
+      "model": "gemma3:latest",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260403_073524",
+      "start_time": "2026-04-03T07:35:24.775965",
+      "model": "gemma4:31b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260404_145044",
+      "start_time": "2026-04-04T14:50:44.769484",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260404_145438",
+      "start_time": "2026-04-04T14:54:38.741288",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260404_150233",
+      "start_time": "2026-04-04T15:02:33.399702",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260405_104325",
+      "start_time": "2026-04-05T10:43:25.049683",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260405_105446",
+      "start_time": "2026-04-05T10:54:46.924247",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260405_110329",
+      "start_time": "2026-04-05T11:03:29.769851",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": [],
+      "end_time": "2026-04-05T11:19:36.570547",
+      "duration": 966.800696
+    },
+    {
+      "id": "20260405_112254",
+      "start_time": "2026-04-05T11:22:54.919399",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260405_115716",
+      "start_time": "2026-04-05T11:57:16.954308",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": [],
+      "end_time": "2026-04-05T12:09:12.958070",
+      "duration": 716.003762
+    },
+    {
+      "id": "20260405_121145",
+      "start_time": "2026-04-05T12:11:45.259980",
+      "model": "gemma3:latest",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260405_121702",
+      "start_time": "2026-04-05T12:17:02.156270",
+      "model": "gemma3:latest",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260405_122256",
+      "start_time": "2026-04-05T12:22:56.853881",
+      "model": "gemma3:latest",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
     }
   ],
   "total_messages": 0,
@@ -206,36 +356,44 @@
   "total_response_time": 0.0,
   "models_used": {},
   "commands_used": {
-    "help": 24,
+    "help": 43,
     "list": 1,
     "model": 5,
-    "shell": 19,
-    "settings": 11,
-    "search": 4,
-    "clear": 13,
-    "export": 3,
-    "stats": 9,
-    "analytics": 2,
-    "report": 2,
-    "monitor": 3,
-    "plugins": 1,
+    "shell": 20,
+    "settings": 21,
+    "search": 6,
+    "clear": 15,
+    "export": 7,
+    "stats": 11,
+    "analytics": 4,
+    "report": 3,
+    "monitor": 4,
+    "plugins": 3,
     "plugins-available": 3,
     "plugin-load": 3,
     "plugin-info": 2,
     "/persona": 1,
-    "persona": 13,
-    "new_session": 32,
+    "persona": 24,
+    "new_session": 43,
     "load_history": 1,
     "exit": 13,
     "session": 3,
-    "save": 2,
+    "save": 5,
     "cls": 1,
-    "suggest": 1,
-    "pull": 1,
-    "models": 1,
-    "quit": 8,
-    "calc": 4,
-    "file": 7
+    "suggest": 6,
+    "pull": 16,
+    "models": 5,
+    "quit": 19,
+    "calc": 5,
+    "file": 14,
+    "personas": 3,
+    "setting": 1,
+    "load": 1,
+    "ollama": 1,
+    "run": 1,
+    "rm": 1,
+    "read_file": 1,
+    "new_sesion": 1
   },
   "daily_usage": {},
   "created_at": "2025-11-24T21:01:44.997770"

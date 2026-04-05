@@ -1,20 +1,20 @@
+/new_session switch 20260405_112307_e75866
+Belgeleri özetle
 /quit
-/file read r2r.md
-r2r.md de anlatılan projeyi özetle.
-/file read r2r.md dosyasını özetle
-r2r.md dosyasını özetle
+/new_session create
+Gök yüzü neden mavi ?
+Gökyüzü neden mavi?
+soruyu görmezden gelme "gökyüzü neden mavi"
 /quit
-/file read r2r.md
-r2r.md dosyayı özetle
-/file read r2r.md
-r2r.md dosyayı özetle
+Gökyüzü neden mavi?
+soruyu görmezden gelme "gökyüzü neden mavi"
+Gökyüzü neden mavi? bir C kodu ile açıkla
 /quit
-/plugin-load file_plugin
-/file read r2r.md
-r2r.md dosyayı özetle
-/exit
-/file read r2r.md
-Bu okuduğun r2r.md dosyasını özetle
-/file read README.md
-README.md dosyasını özetle
-/exit
+Gökyüzü neden mavi?
+/help
+/persona list
+/persona set python_yapay_zeka
+tamam chat-cli ve diğerlerini collector, kb.collector yeniden yazıyoruz incele
+/help
+/save test.txt
+/quit

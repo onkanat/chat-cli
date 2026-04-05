@@ -1,0 +1,40 @@
+KOBİ'ler için "Gizli" Yerel Bilgi Asistanı (Edge AI Box), verinin kutsal olduğu ve gizliliğin yasal zorunluluk (KVKK) haline geldiği bir dönemde, bulut tabanlı yapay zeka çözümlerine karşı güçlü bir donanım+yazılım alternatifidir. Bu sistemi teknik ve ticari olarak şu şekilde yapılandırabiliriz:
+
+### 1. Donanım Mimarisi (Edge Server)
+Sistemin kalbinde, yüksek VRAM kapasitesine sahip ancak enerji verimliliği yüksek bir yapı yer almalıdır.
+* **GPU Konfigürasyonu:** Çift GPU (örneğin 2x RTX 4060 veya üstü) kullanımı, modellerin paralel çalıştırılması veya bir GPU’nun tamamen vektör veritabanı (RAG) işlemlerine ayrılması için idealdir. Toplam 24GB+ VRAM, Qwen-2.5-14B gibi orta ölçekli modelleri yüksek performansla çalıştırmaya yeterlidir.
+* **Kasa ve Soğutma:** "Mini Server" form faktöründe, ofis içinde sessiz çalışabilecek şekilde optimize edilmiş soğutma blokları.
+* **Bağlantı:** Dahili bir web sunucusu üzerinden sadece yerel ağda (Intranet) çalışan bir arayüz.
+
+
+
+### 2. Yazılım Katmanı ve "Skill" Yönetimi
+Sistemi sadece bir "chat" kutusu olmaktan çıkarıp bir iş asistanına dönüştüren kısım burasıdır:
+* **Model ve Optimizasyon:** **Unsloth** kütüphanesi ile optimize edilmiş 4-bit veya 8-bit quantized modeller (Qwen 2.5 veya Gemma 2). Bu sayede model çok daha az kaynak tüketerek daha hızlı cevap üretir.
+* **Dinamik Skill (Yetenek) Yapısı:** Kullanıcının ihtiyacına göre (Muhasebe, Teknik Döküman Analizi, İK gibi) farklı **LoRA** (Low-Rank Adaptation) ağırlıklarının çalışma anında (on-the-fly) yüklenmesi. Bu sayede ana modeli değiştirmeden, sadece 100-200 MB'lık skill dosyalarıyla uzmanlık alanı değiştirilebilir.
+* **Vektör Veritabanı (RAG):** Şirketin PDF, Excel ve Word dökümanlarının yerelde **Qdrant** veritabanına gömülmesi (embedding). Kullanıcı bir soru sorduğunda, sistem önce bu dökümanları tarar ve cevabı sadece bu dökümanlara dayanarak (hallucination engellenmiş şekilde) verir.
+
+
+
+### 3. Kullanım Senaryoları (Ürün Paketleri)
+Bu kutuyu farklı "SKU" (stok kodu) seçenekleriyle pazarlayabilirsin:
+* **Legal-Box:** Hukuk büroları için binlerce sayfalık dava dosyalarını ve kanunları saniyeler içinde tarayan versiyon.
+* **Tech-Box:** Mühendislik firmaları için teknik standartlar, kataloglar (paylaştığın dökümanlar gibi) ve geçmiş projeler üzerinde sorgulama yapan versiyon.
+* **HR-Box:** Şirket içi yönetmelikler ve çalışan el kitapları için İK asistanı.
+
+### 4. Neden Para Kazandırır? (Ticari Gerekçeler)
+1.  **KVKK Tam Uyumluluk:** Şirket verisi binadan dışarı çıkmaz. İnternet kablosu çekilse bile sistem çalışmaya devam eder.
+2.  **Sıfır Abonelik Maliyeti:** ChatGPT gibi servislerin aylık kullanıcı başı ücretleri yerine, bir kere alınan ve şirkete ait olan bir donanım maliyeti.
+3.  **Özelleştirilmiş Eğitim:** Şirketin kendi "jargonunu" ve geçmiş verisini bilen, ona özel eğitilmiş bir model. Bulut servislerinde bu veriyi paylaşmak büyük riskken, yerel kutuda bu bir avantajdır.
+4.  **Hız ve Entegrasyon:** Yerel ağda düşük gecikme (latency) ve şirketin yerel veritabanlarına (ERP/CRM) doğrudan güvenli erişim.
+
+### Uygulama Adımları
+Bu projeye başlarken, önce bir Docker konteyner yapısı kurmak en sağlıklısı olacaktır. Bu yapı içinde;
+1.  **Inference Engine:** (vLLM veya Ollama)
+2.  **Vector DB:** (Qdrant)
+3.  **UI:** (Streamlit veya özel bir React arayüzü)
+4.  **Orchestrator:** (Kullanıcının sorusuna göre hangi skill'in veya dökümanın çağrılacağına karar veren Python scripti)
+
+
+
+Bu yapıyı oluşturmak için **Python** tarafında mimariyi planlamaya hazırsan, ilk modül olan "Dinamik Skill Seçici" veya "RAG Pipeline" üzerinde çalışmaya başlayabiliriz. Hangisinden başlamak istersin?

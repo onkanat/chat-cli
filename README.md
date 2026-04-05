@@ -113,16 +113,15 @@ pytest tests/
 pytest --cov=. tests/
 ```
 
-## 🚀 Recent Changes (v0.3.0-beta)
+## 🚀 Recent Changes (Omni-Architecture V2)
 
-**Phase 2 Refactoring** - Modular architecture:
+**Phase 3 Refactoring** - Thin Client & RAG Offloading:
+- Transitioned `chat-cli` into a "Thin Client" architecture.
+- Vector database hosting (Qdrant) and heavy logic moved to **Omni-Daemon**.
+- Timeout thresholds optimized to support real-time streaming endpoint `/api/v1/stream`.
+- Preserved local plugins (e.g. `persona_selector`, `/file read`).
 
-- Extracted services/commands/repl layers
-- Reduced main.py from 1477 → 648 lines (56%)
-- Clean separation of concerns
-- All tests passing, zero lint errors
-
-See [docs/AGENTS.md](docs/AGENTS.md) for refactoring details.
+See [docs/AGENTS.md](docs/AGENTS.md) for Refactoring history.
 
 ## 📝 License
 

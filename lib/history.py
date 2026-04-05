@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 # Defaults kept here so tests can import functions from main that delegate
 DEFAULT_MAX_CONTEXT_TOKENS = int(
-    __import__("os").getenv("OLLAMA_MAX_CONTEXT_TOKENS", "8192")
+    __import__("os").getenv("OLLAMA_MAX_CONTEXT_TOKENS", "16384")
 )
 DEFAULT_MAX_OUTPUT_CHARS = int(
     __import__("os").getenv("OLLAMA_MAX_OUTPUT_CHARS", "4000")

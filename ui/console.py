@@ -6,8 +6,7 @@ from typing import Any, Dict, List, Iterator
 from rich.console import Console
 
 import lib.history as history_mod
-import lib.ollama_wrapper as ow
-from lib.ollama_wrapper import OllamaError
+import requests
 
 console = Console()
 
@@ -136,57 +135,42 @@ def get_model_reply_stream(
     system_message: str = "",
     model_name: str | None = None,
 ) -> Iterator[str]:
-    if isinstance(prompt_or_history, list):
-        history = prompt_or_history
-        full_prompt = history_mod.build_model_prompt_from_history_full(
-            history,
-            max_tokens=max_tokens,
-            max_output_chars=max_output_chars,
-            system_message=system_message,
-        )
-    else:
-        full_prompt = prompt_or_history
-
-    msgs = None
-    if isinstance(prompt_or_history, list):
-        try:
-            msgs = history_mod.build_model_messages_from_history(
-                prompt_or_history,
-                max_tokens=max_tokens,
-                max_output_chars=max_output_chars,
-                system_message=system_message,
-                model_name=model_name,
-            )
-        except Exception:
-            msgs = None
-
-    # Use ollama_wrapper for streaming
+    # Phase 3.2: Redirect generation to Omni-Daemon REST API
     try:
-        model = model_name
-        if not model:
-            models = ow.list_models()
-            model = models[0] if models else None
+        # We find the last user message from history for the query, but we pass the full constructed text
+        # usually full_prompt is basically just what the user typed + history format. We will use the simplest text.
+        # Omni-Daemon expects the user's latest query mainly for embedding semantic search.
+        latest_query = "Assistant prompt"
+        if isinstance(prompt_or_history, list) and len(prompt_or_history) > 0:
+            latest_query = prompt_or_history[-1].get("text", "")
+        elif isinstance(prompt_or_history, str):
+            latest_query = prompt_or_history
+
+        url = "http://localhost:8000/api/v1/stream"
+        payload = {
+            "query": latest_query,
+            "system_prompt": system_message,
+            "model": model_name,
+            "stream": True,
+            "top_k": 5
+        }
         
-        if not model:
-            yield "[Error: No model available]"
-            return
-        
-        # Try chat if we have messages, otherwise generate
-        chunk_count = 0
-        if msgs:
-            for chunk in ow.chat_stream(model, msgs):
-                chunk_count += 1
-                yield to_text(chunk)
-        else:
-            for chunk in ow.generate_stream(model, full_prompt):
-                chunk_count += 1
-                yield to_text(chunk)
-        
-        # If no chunks received, yield error message
-        if chunk_count == 0:
-            yield "[No response from model]"
-    except OllamaError as e:
-        yield f"[Ollama Error: {e}]"
+        with requests.post(url, json=payload, stream=True, timeout=(10.0, 600.0)) as resp:
+            resp.raise_for_status()
+            chunk_count = 0
+            for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
+                if chunk:
+                    # It's a plain text stream, we just yield the decoded text
+                    # (Fallback in case it still says 'data: ' from accidental SSE structure)
+                    chunk_str = chunk.replace('data: ', '')
+                    if chunk_str:
+                        chunk_count += 1
+                        yield chunk_str
+                        
+            if chunk_count == 0:
+                 yield "[No response from model]"
+    except requests.exceptions.RequestException as e:
+        yield f"[Omni-Daemon Error: {e}]"
     except Exception as e:
         yield f"[Stream error: {e}]"
 
@@ -198,50 +182,30 @@ def get_model_reply_sync(
     system_message: str = "",
     model_name: str | None = None,
 ) -> str:
-    if isinstance(prompt_or_history, list):
-        history = prompt_or_history
-        full_prompt = history_mod.build_model_prompt_from_history_full(
-            history,
-            max_tokens=max_tokens,
-            max_output_chars=max_output_chars,
-            system_message=system_message,
-            model_name=model_name,
-        )
-    else:
-        full_prompt = prompt_or_history
-
-    # Use ollama_wrapper for sync generation
+    # Phase 3.2: Redirect generation to Omni-Daemon REST API
     try:
-        models = ow.list_models()
-        target_model = model_name or (models[0] if models else None)
-        
-        if target_model:
-            # Build messages if we have history
-            msgs = None
-            if isinstance(prompt_or_history, list):
-                try:
-                    msgs = history_mod.build_model_messages_from_history(
-                        prompt_or_history,
-                        max_tokens=max_tokens,
-                        max_output_chars=max_output_chars,
-                        system_message=system_message,
-                        model_name=model_name,
-                    )
-                except Exception:
-                    msgs = None
-            
-            # Use chat if we have messages, otherwise generate
-            if msgs:
-                result = ow.chat_sync(target_model, msgs)
-            else:
-                result = ow.generate_sync(target_model, full_prompt)
-            
-            if result and not result.startswith("Error:"):
-                return result.strip()
-            return result
-    except OllamaError as e:
-        return f"[Ollama Error: {e}]"
+        latest_query = "Assistant prompt"
+        if isinstance(prompt_or_history, list) and len(prompt_or_history) > 0:
+            latest_query = prompt_or_history[-1].get("text", "")
+        elif isinstance(prompt_or_history, str):
+            latest_query = prompt_or_history
+
+        url = "http://localhost:8000/api/v1/generate"
+        payload = {
+            "query": latest_query,
+            "system_prompt": system_message,
+            "model": model_name,
+            "stream": False,
+            "top_k": 5
+        }
+
+        resp = requests.post(url, json=payload, timeout=(10.0, 600.0))
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("response", "[stub reply] (no ollama response)")
+    except requests.exceptions.RequestException as e:
+        return f"[Omni-Daemon Error: {e}]"
     except Exception:
         pass
 
-    return "[stub reply] (no ollama response)"
+    return "[stub reply] (no response)"

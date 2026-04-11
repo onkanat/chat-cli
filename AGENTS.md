@@ -1,134 +1,84 @@
 # Development Guidelines for Ollama Chat CLI
 
-## Build/Lint/Test Commands
+## Quick Start (Build / Test / Run)
 
-- **Install dependencies**: `pip install -r requirements.txt` (use venv for externally-managed environments)
-- **Run tests**: `python3 -m pytest tests/ -q`
-- **Run single test**: `python3 -m pytest tests/test_history_processing.py::test_function_name`
-- **Run application**: `python3 main.py chat`
-- **List models**: `python3 main.py list-models-cmd`
+### macOS-first (önerilen)
 
-## Code Style Guidelines
+- `python3 -m venv .chat`
+- `source .chat/bin/activate`
+- `pip install -r requirements.txt`
+- `python3 -m pytest tests/ -q`
+- `python3 main.py chat`
 
-### Imports & Structure
+### Alternative shortcuts
 
-- Use `from __future__ import annotations` at top of all Python files
-- Group imports: standard library, third-party, local modules (in that order)
-- Use type hints consistently (Python 3.8+ style with `str | None` syntax)
-- Modular architecture with clear separation of concerns
+- Run single test: `python3 -m pytest tests/test_history_processing.py::test_function_name`
+- List models: `python3 main.py list-models-cmd`
 
-### Naming Conventions
+> EN: Use a virtual environment on externally-managed Python systems.
+> TR: Dışarıdan yönetilen Python kurulumlarında mutlaka sanal ortam kullanın.
 
-- Functions: `snake_case` with descriptive names
-- Variables: `snake_case`, avoid single letters except loop counters
-- Constants: `UPPER_SNAKE_CASE`
-- Private functions: prefix with `_` underscore
-- Module-level variables: snake_case with leading underscore for private state
+## Architecture Snapshot
 
-### Error Handling
+- `main.py`: Typer CLI entry and command registration
+- `commands/`: thin command orchestration
+- `services/`: business logic (models/settings/server profiles)
+- `lib/`: core utilities (history, config cache, wrappers, session manager)
+- `ui/`: Rich terminal rendering/input/stream display
+- `plugins/`: dynamic plugin loading and command registry
+- `repl/`: main interaction loop (plugins + analytics + history integration)
 
-- Use try/except blocks for external dependencies (ollama clients, file I/O, subprocess)
-- Return fallback values (None, empty list, False) rather than raising for user-facing operations
-- Graceful degradation when ollama clients unavailable
-- Silent failure for non-critical operations (config writes, etc.)
+Deep dives (link, don’t embed):
 
-### Code Organization
+- `docs/ARCHITECTURE.md`
+- `docs/CONTEXT_OPTIMIZATION_ANALYSIS.md`
+- `docs/FULL_README.md`
 
-- **main.py**: Typer CLI bootstrap and command registration (225 lines)
-- **commands/**: CLI command handlers (thin orchestration layer)
-- **services/**: Business logic layer (server profiles, settings, models)
-- **lib/**: Core utilities (history, config, ollama_wrapper, session_manager)
-- **ui/**: Terminal UI components (console, inputs, renderers, stream_display)
-- **plugins/**: Plugin system with registry and example plugins
-- **analytics/**: Usage tracking and reporting
+## Code Style and Conventions
 
-### Testing
+- Use `from __future__ import annotations` at the top of Python files.
+- Keep imports grouped: stdlib → third-party → local modules.
+- Use explicit type hints (`str | None` style).
+- Naming:
+	- functions/variables: `snake_case`
+	- constants: `UPPER_SNAKE_CASE`
+	- private names: leading `_`
+- Prefer `pathlib.Path` and UTF-8 for file I/O.
+- For external dependencies (ollama/file I/O/subprocess), prefer graceful fallback behavior over user-facing crashes.
 
-- Test history processing functions thoroughly (token estimation, truncation)
-- Mock external dependencies in tests (ollama clients, file system)
-- Focus on core logic: shell output summarization, context management
-- Tests import functions from main.py for backward compatibility
-- Use pytest with `-q` flag for concise output
+## Testing Conventions
 
-### Dependencies
+- Primary: `python3 -m pytest tests/ -q`
+- Mock external dependencies where possible.
+- Keep compatibility with tests importing re-exported functions from `main.py`.
+- If tests depend on config caching behavior, clear module-level cache around tests (see `tests/test_model_profiles.py`).
 
-- **Core**: `ollama>=0.6.1`, `typer[all]`, `rich`, `markdown`
-- **Optional**: `tiktoken` for better token estimation (with fallback)
-- **File operations**: Use `pathlib.Path` with UTF-8 encoding
-- **Configuration**: JSON-based with smart caching and auto-reload
+## Dependencies and Gotchas
 
-### Key Patterns
+- Core: `ollama>=0.6.1`, `typer[all]`, `rich`, `markdown`, `PyYAML>=6.0`
+- Optional: `tiktoken` (fallback token estimation exists)
+- Plugin config source: `plugin_config.json`
 
-- **Stream responses** when possible, fall back to sync for compatibility
-- **Model profiles**: Auto-detect model size (small/medium/large) for optimized settings
-- **Context management**: Smart truncation with token estimation and summarization
-- **Plugin system**: Registry-based with persona selector example
-- **Configuration**: Cached with mtime tracking for auto-reload
-- **Rich UI**: Terminal interface with markdown support and colored status indicators
-- **Session management**: Persistent conversation history with JSON storage
+### External dependency: `system_prompts`
 
-### File I/O Patterns
+`plugins/persona_selector.py` can read personas from external `../system_prompts` via:
 
-- Use `pathlib.Path` for all file operations
-- UTF-8 encoding explicitly specified
-- Graceful handling of missing files (return defaults)
-- Atomic writes where possible for configuration files
+- `plugin_config.json` → `plugin_settings.persona_selector.system_prompts_path`
 
-### Type Hints
+If path is missing/invalid, plugin falls back to:
 
-- Use `str | None` syntax (Python 3.8+)
-- Import `Any, Dict, List` from typing as needed
-- Return types explicitly declared for public functions
-- Optional types used extensively for configuration values
+- `plugins/system_prompts/personas.json` (legacy default personas)
 
----
+If persona metadata/tags are missing, verify:
 
-## 🔗 External Dependency: system_prompts
+- `PyYAML` installed
+- `system_prompts/scripts/skills_to_json.py` was run
+- `/persona reload` executed in chat-cli
 
-> [!IMPORTANT]
-> `plugins/persona_selector.py` plugin'i, bağımsız
-> [`../system_prompts`](../system_prompts) reposuna **canlı bağlıdır**.
-> Bu ilişkiyi değiştirirken aşağıdaki kuralları göz önünde bulundurun.
+## Documentation Map
 
-### Bağlantı Noktası
-
-`plugin_config.json` → `plugin_settings.persona_selector.system_prompts_path`
-
-Bu değer, `PersonaSelectorPlugin.__init__()` tarafından okunur.
-Path yoksa veya `null` ise plugin otomatik olarak `plugins/system_prompts/personas.json`
-(4 varsayılan persona) fallback'ine düşer.
-
-### Kırılma Senaryoları
-
-| Senaryo | Etki | Çözüm |
-| ------- | ---- | ----- |
-| `system_prompts` klasörü taşındı | Plugin fallback'e düşer (4 persona) | `plugin_config.json`'daki `system_prompts_path` güncelle |
-| `skills_to_json.py` çalıştırılmadı | Eski prompts.json kullanılır | `python scripts/skills_to_json.py` → `/persona reload` |
-| `PyYAML` kurulu değil | `persona_map.yaml` okunamaz (tags boş) | `pip install PyYAML>=6.0` |
-
-### Güvenli Güncelleme Adımları
-
-```bash
-# 1. Yeni skill ekle (system_prompts tarafında)
-cd ../system_prompts
-# skills/<id>/SKILL.md oluştur
-
-# 2. Derleme
-python scripts/skills_to_json.py
-
-# 3. Testleri doğrula (system_prompts tarafında)
-python run_tests.py
-
-# 4. chat-cli'da yükle (test ortamında)
-cd ../chat-cli
-.chat/bin/python -m pytest tests/test_persona_selector_skills.py -v
-
-# 5. Canlı yenile
-/persona reload
-```
-
-### Bağımlılık Matrisi
-
-- `chat-cli` venv (`.chat/`): `ollama, typer, rich, markdown, PyYAML>=6.0`
-- `system_prompts` venv (`venv/`): `PyYAML>=6.0`
-- **Çakışma yok** — iki venv tamamen ayrı.
+- `README.md`: quick-start and core commands
+- `docs/FULL_README.md`: comprehensive feature reference
+- `docs/ARCHITECTURE.md`: architecture and component boundaries
+- `docs/CONTEXT_OPTIMIZATION_ANALYSIS.md`: context/history strategy
+- `docs/FINETUNING_8GB.md`: low-memory fine-tuning guide

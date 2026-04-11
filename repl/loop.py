@@ -593,7 +593,13 @@ def run_chat(
                 parts: List[str] = []
                 buffer = ""
                 char_count = 0
-                model_status = f"🤖 {CURRENT_MODEL or 'Unknown'} (streaming...)"
+                route_label = ui_mod.get_active_route_label(
+                    history,
+                    CURRENT_MODEL,
+                )
+                model_status = (
+                    f"🤖 {CURRENT_MODEL or 'Unknown'} ({route_label})"
+                )
                 ui_mod.console.print(f"[blue]{model_status}[/blue]")
 
                 # Build a single Live with both the panel and progress to avoid flicker

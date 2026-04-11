@@ -2,11 +2,19 @@
   "enabled_plugins": [
     "example_plugin",
     "persona_selector",
-    "file_plugin"
+    "file_plugin",
+    "wiki_plugin"
   ],
   "plugin_settings": {
     "persona_selector": {
       "system_prompts_path": "/Users/hakankilicaslan/Git/system_prompts"
+    },
+    "wiki_plugin": {
+      "omni_daemon_url": "http://localhost:8000",
+      "wiki_path": "/Users/hakankilicaslan/Git/LLMwiki",
+      "auto_context": false,
+      "context_top_k": 3,
+      "request_timeout": 30
     }
   },
   "auto_load": true

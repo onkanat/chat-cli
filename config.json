@@ -1,9 +1,9 @@
 {
-  "default_model": "gemma3:latest",
-  "system_message": "Sen hızlı ve akıcı düşünen mühendislik araçlarını iyi kullanan bir modelsin",
-  "max_tokens": 16384,
+  "default_model": "qwen3.5:2b",
+  "system_message": "Sen hızlı ve akıcı düşünen bir asistanısın",
+  "max_tokens": 8194,
   "ollama_servers": {
-    "active": "remote",
+    "active": "local",
     "profiles": {
       "local": {
         "label": "Localhost",
@@ -17,6 +17,22 @@
   },
   "persona": {
     "current_persona": "python_yapay_zeka",
-    "last_updated": "2026-04-05T09:25:45.209217+00:00"
+    "last_updated": "2026-04-08T23:10:08.181981+00:00"
+  },
+  "generation_route": "direct",
+  "fallback_to_direct_on_error": true,
+  "omni_base_url": "http://localhost:8000",
+  "omni_top_k": 5,
+  "direct_num_ctx_cap": 4096,
+  "direct_memory_fallback_model": "gemma3:latest",
+  "chat_interface_prefer_direct": false,
+  "performance": {
+    "temperature": 0.0,
+    "num_ctx": 4096,
+    "num_gpu": -1,
+    "num_thread": 0,
+    "parallel": 4,
+    "num_keep": 128,
+    "low_vram": false
   }
 }

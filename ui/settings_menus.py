@@ -64,7 +64,9 @@ def _set_active_server(config: dict, profile_name: str) -> dict:
     return cfg
 
 
-def _set_server_base_url(config: dict, profile_name: str, base_url: str) -> dict:
+def _set_server_base_url(
+    config: dict, profile_name: str, base_url: str
+) -> dict:
     cfg = _ensure_server_profiles(config)
     servers = cfg["ollama_servers"]
     profiles = servers["profiles"]
@@ -108,9 +110,11 @@ def _server_switch_menu(config: dict) -> dict:
         marker = "👉" if name == active else "  "
         label = profile.get("label", name.title())
         base = profile.get("base_url", "")
-        ui_mod.console.print(
-            f"{marker} [cyan]{idx}[/cyan]. [white]{label}[/white] [dim]({base})[/dim]"
+        line_txt = (
+            f"{marker} [cyan]{idx}[/cyan]."
+            f" [white]{label}[/white] [dim]({base})[/dim]"
         )
+        ui_mod.console.print(line_txt)
     choice = input("Select server (number) or Enter to cancel: ").strip()
     if not choice:
         return cfg
@@ -141,7 +145,9 @@ def _server_edit_prompt(config: dict, profile_name: str) -> dict:
     profile = profiles.get(profile_name, {})
     label = profile.get("label", profile_name.title())
     default_url = (
-        DEFAULT_REMOTE_BASE_URL if profile_name == "remote" else DEFAULT_LOCAL_BASE_URL
+        DEFAULT_REMOTE_BASE_URL
+        if profile_name == "remote"
+        else DEFAULT_LOCAL_BASE_URL
     )
     current_url = profile.get("base_url", default_url)
     ui_mod.console.print(
@@ -211,6 +217,16 @@ def settings_menu(config: dict) -> dict:
     current_max_tokens = config.get("max_tokens", 2048)
     current_theme = config.get("theme", "default")
     current_system_message = config.get("system_message", "")
+    current_route = config.get("generation_route", "omni")
+    fallback_enabled = bool(config.get("fallback_to_direct_on_error", True))
+    current_omni_base = config.get("omni_base_url", "http://localhost:8000")
+    current_omni_top_k = config.get("omni_top_k", 5)
+    current_direct_ctx_cap = config.get("direct_num_ctx_cap", 4096)
+    current_direct_fallback = config.get(
+        "direct_memory_fallback_model",
+        "gemma3:latest",
+    )
+    chat_prefer_direct = bool(config.get("chat_interface_prefer_direct", True))
 
     ui_mod.console.print(
         "[dim]Current Temperature:[/dim] "
@@ -223,6 +239,34 @@ def settings_menu(config: dict) -> dict:
     ui_mod.console.print(
         "[dim]Current Theme:[/dim] "
         f"[cyan]{current_theme}[/cyan] (default/dark/light)"
+    )
+    ui_mod.console.print(
+        "[dim]Generation Route:[/dim] "
+        f"[cyan]{current_route}[/cyan] (omni/auto/direct)"
+    )
+    ui_mod.console.print(
+        "[dim]Fallback to Direct on Error:[/dim] "
+        f"[cyan]{'on' if fallback_enabled else 'off'}[/cyan]"
+    )
+    ui_mod.console.print(
+        "[dim]Omni Base URL:[/dim] "
+        f"[cyan]{current_omni_base}[/cyan]"
+    )
+    ui_mod.console.print(
+        "[dim]Omni top_k:[/dim] "
+        f"[cyan]{current_omni_top_k}[/cyan] (1-20)"
+    )
+    ui_mod.console.print(
+        "[dim]Direct num_ctx cap:[/dim] "
+        f"[cyan]{current_direct_ctx_cap}[/cyan] (512-32768)"
+    )
+    ui_mod.console.print(
+        "[dim]Direct OOM fallback model:[/dim] "
+        f"[cyan]{current_direct_fallback}[/cyan]"
+    )
+    ui_mod.console.print(
+        "[dim]Chat interface direct preference:[/dim] "
+        f"[cyan]{'on' if chat_prefer_direct else 'off'}[/cyan]"
     )
     if current_system_message:
         display_msg = (
@@ -245,23 +289,32 @@ def settings_menu(config: dict) -> dict:
     ui_mod.console.print("4. Change system message")
     ui_mod.console.print("5. Reset to defaults")
     ui_mod.console.print("6. Configure Ollama server")
-    ui_mod.console.print("7. Back to chat")
+    ui_mod.console.print("7. Change generation route")
+    ui_mod.console.print("8. Toggle direct fallback on error")
+    ui_mod.console.print("9. Change Omni base URL")
+    ui_mod.console.print("10. Change Omni top_k")
+    ui_mod.console.print("11. Change direct num_ctx cap")
+    ui_mod.console.print("12. Change direct OOM fallback model")
+    ui_mod.console.print("13. Toggle chat direct preference")
+    ui_mod.console.print("14. Back to chat")
 
     try:
-        choice = input("\nSelect option (1-7): ").strip()
+        choice = input("\nSelect option (1-14): ").strip()
 
         if choice == "1":
             try:
                 new_temp = float(
                     input(
-                        f"Enter temperature (0.0-2.0) [current: {current_temp}]: "
+                        f"Enter temperature (0.0-2.0)"
+                        f" [current: {current_temp}]: "
                     ).strip()
                     or str(current_temp)
                 )
                 if 0.0 <= new_temp <= 2.0:
                     config["temperature"] = new_temp
                     ui_mod.console.print(
-                        f"[green]✓ Temperature set to:[/green] [white]{new_temp}[/white]"
+                        f"[green]✓ Temperature set to:[/green]"
+                        f" [white]{new_temp}[/white]"
                     )
                 else:
                     ui_mod.console.print(
@@ -274,14 +327,16 @@ def settings_menu(config: dict) -> dict:
             try:
                 new_tokens = int(
                     input(
-                        f"Enter max tokens (100-16384) [current: {current_max_tokens}]: "
+                        f"Enter max tokens (100-16384)"
+                        f" [current: {current_max_tokens}]: "
                     ).strip()
                     or str(current_max_tokens)
                 )
                 if 100 <= new_tokens <= 16384:
                     config["max_tokens"] = new_tokens
                     ui_mod.console.print(
-                        f"[green]✓ Max tokens set to:[/green] [white]{new_tokens}[/white]"
+                        f"[green]✓ Max tokens set to:[/green]"
+                        f" [white]{new_tokens}[/white]"
                     )
                 else:
                     ui_mod.console.print(
@@ -303,7 +358,8 @@ def settings_menu(config: dict) -> dict:
 
             try:
                 theme_choice = input(
-                    f"Select theme (1-{len(themes)}) [current: {current_theme}]: "
+                    f"Select theme (1-{len(themes)})"
+                    f" [current: {current_theme}]: "
                 ).strip()
                 if not theme_choice:
                     theme_choice = str(themes.index(current_theme) + 1)
@@ -313,16 +369,21 @@ def settings_menu(config: dict) -> dict:
                     selected_theme = themes[theme_num - 1]
                     config["theme"] = selected_theme
                     ui_mod.console.print(
-                        f"[green]✓ Theme set to:[/green] [white]{selected_theme}[/white]"
+                        f"[green]✓ Theme set to:[/green]"
+                        f" [white]{selected_theme}[/white]"
                     )
                 else:
-                    ui_mod.console.print("[red]❌ Invalid theme selection[/red]")
+                    ui_mod.console.print(
+                        "[red]❌ Invalid theme selection[/red]"
+                    )
             except ValueError:
                 ui_mod.console.print("[red]❌ Invalid theme value[/red]")
 
         elif choice == "4":
             # System message configuration
-            ui_mod.console.print("\n[bold]System Message Configuration:[/bold]")
+            ui_mod.console.print(
+                "\n[bold]System Message Configuration:[/bold]"
+            )
             ui_mod.console.print("1. Edit system message")
             ui_mod.console.print("2. Use predefined template")
             ui_mod.console.print("3. Clear system message")
@@ -333,14 +394,21 @@ def settings_menu(config: dict) -> dict:
 
                 if sub_choice == "1":
                     # Edit system message
-                    ui_mod.console.print("\n[dim]Current system message:[/dim]")
+                    ui_mod.console.print(
+                        "\n[dim]Current system message:[/dim]"
+                    )
                     if current_system_message:
-                        ui_mod.console.print(f"[cyan]{current_system_message}[/cyan]")
+                        ui_mod.console.print(
+                            f"[cyan]{current_system_message}[/cyan]"
+                        )
                     else:
-                        ui_mod.console.print("[yellow]No system message set[/yellow]")
+                        ui_mod.console.print(
+                            "[yellow]No system message set[/yellow]"
+                        )
 
                     ui_mod.console.print(
-                        "\n[dim]Enter new system message (press Enter on empty line to finish):[/dim]"
+                        "\n[dim]Enter new system message "
+                        "(press Enter on empty line to finish):[/dim]"
                     )
                     lines = []
                     while True:
@@ -357,7 +425,9 @@ def settings_menu(config: dict) -> dict:
                     if lines:
                         new_system_message = "\n".join(lines)
                         config["system_message"] = new_system_message
-                        ui_mod.console.print("[green]✓ System message updated[/green]")
+                        ui_mod.console.print(
+                            "[green]✓ System message updated[/green]"
+                        )
                     else:
                         ui_mod.console.print(
                             "[yellow]⚠️  System message unchanged[/yellow]"
@@ -367,7 +437,8 @@ def settings_menu(config: dict) -> dict:
                     # Predefined templates
                     templates = {
                         "1": (
-                            "Sen hızlı ve akıcı düşünen mühendislik araçlarını "
+                            "Sen hızlı ve akıcı düşünen "
+                            "mühendislik araçlarını "
                             "iyi kullanan bir modelsin"
                         ),
                         "2": (
@@ -380,8 +451,9 @@ def settings_menu(config: dict) -> dict:
                             "ayıklama ve optimizasyon konularında yardımcı ol."
                         ),
                         "4": (
-                            "Sen analitik bir düşünecisin. Sorunları mantıksal "
-                            "adımlarla çöz ve açıklamalarını net yap."
+                            "Sen analitik bir düşünecisin. "
+                            "Sorunları mantıksal adımlarla çöz "
+                            "ve açıklamalarını net yap."
                         ),
                     }
 
@@ -394,11 +466,16 @@ def settings_menu(config: dict) -> dict:
                     ui_mod.console.print("4. Analytical Thinker")
 
                     try:
-                        template_choice = input("\nSelect template (1-4): ").strip()
+                        template_choice = input(
+                            "\nSelect template (1-4): "
+                        ).strip()
                         if template_choice in templates:
-                            config["system_message"] = templates[template_choice]
+                            config["system_message"] = (
+                                templates[template_choice]
+                            )
                             ui_mod.console.print(
-                                "[green]✓ System message template applied[/green]"
+                                "[green]✓ System message"
+                                " template applied[/green]"
                             )
                         else:
                             ui_mod.console.print(
@@ -412,7 +489,9 @@ def settings_menu(config: dict) -> dict:
                 elif sub_choice == "3":
                     # Clear system message
                     config["system_message"] = ""
-                    ui_mod.console.print("[green]✓ System message cleared[/green]")
+                    ui_mod.console.print(
+                        "[green]✓ System message cleared[/green]"
+                    )
 
                 elif sub_choice == "4":
                     # Back to settings
@@ -423,7 +502,8 @@ def settings_menu(config: dict) -> dict:
 
             except (KeyboardInterrupt, EOFError):
                 ui_mod.console.print(
-                    "\n[yellow]⚠️  System message configuration cancelled[/yellow]"
+                    "\n[yellow]⚠️  System message "
+                    "configuration cancelled[/yellow]"
                 )
 
         elif choice == "5":
@@ -431,14 +511,177 @@ def settings_menu(config: dict) -> dict:
             config["max_tokens"] = 2048
             config["theme"] = "default"
             config["system_message"] = (
-                "Sen hızlı ve akıcı düşünen mühendislik araçlarını iyi kullanan bir modelsin"
+                "Sen hızlı ve akıcı düşünen mühendislik "
+                "araçlarını iyi kullanan bir modelsin"
             )
+            config["generation_route"] = "omni"
+            config["fallback_to_direct_on_error"] = True
+            config["omni_base_url"] = "http://localhost:8000"
+            config["omni_top_k"] = 5
+            config["direct_num_ctx_cap"] = 4096
+            config["direct_memory_fallback_model"] = "gemma3:latest"
+            config["chat_interface_prefer_direct"] = True
             ui_mod.console.print("[green]✓ Settings reset to defaults[/green]")
 
         elif choice == "6":
             config = server_settings_menu(config)
 
         elif choice == "7":
+            routes = ["omni", "auto", "direct"]
+            route_now = str(config.get("generation_route", "omni")).lower()
+            if route_now not in routes:
+                route_now = "omni"
+
+            ui_mod.console.print("\n[bold]Generation Route:[/bold]")
+            ui_mod.console.print(
+                "[dim]omni:[/dim] always use Omni-Daemon"
+            )
+            ui_mod.console.print(
+                "[dim]auto:[/dim] try Omni-Daemon, then fallback direct"
+            )
+            ui_mod.console.print(
+                "[dim]direct:[/dim] call Ollama directly"
+            )
+
+            for idx, route in enumerate(routes, 1):
+                marker = "👉" if route == route_now else "  "
+                ui_mod.console.print(
+                    f"{marker} [cyan]{idx}[/cyan]. [white]{route}[/white]"
+                )
+
+            route_choice = input(
+                f"Select route (1-{len(routes)}) [current: {route_now}]: "
+            ).strip()
+            if not route_choice:
+                route_choice = str(routes.index(route_now) + 1)
+
+            try:
+                route_num = int(route_choice)
+                if 1 <= route_num <= len(routes):
+                    selected_route = routes[route_num - 1]
+                    config["generation_route"] = selected_route
+                    ui_mod.console.print(
+                        "[green]✓ Generation route set to:[/green] "
+                        f"[white]{selected_route}[/white]"
+                    )
+                else:
+                    ui_mod.console.print(
+                        "[red]❌ Invalid route selection[/red]"
+                    )
+            except ValueError:
+                ui_mod.console.print("[red]❌ Invalid route value[/red]")
+
+        elif choice == "8":
+            current = bool(config.get("fallback_to_direct_on_error", True))
+            config["fallback_to_direct_on_error"] = not current
+            status = "on" if not current else "off"
+            ui_mod.console.print(
+                "[green]✓ Fallback to direct on error:[/green] "
+                f"[white]{status}[/white]"
+            )
+
+        elif choice == "9":
+            current = str(
+                config.get("omni_base_url", "http://localhost:8000")
+            ).strip()
+            ui_mod.console.print("\n[bold]Omni Base URL[/bold]")
+            ui_mod.console.print(f"[dim]Current:[/dim] [cyan]{current}[/cyan]")
+            new_url = input(
+                "Enter Omni base URL (or blank to cancel): "
+            ).strip()
+            if new_url:
+                if _validate_base_url(new_url):
+                    config["omni_base_url"] = new_url.rstrip("/")
+                    ui_mod.console.print(
+                        "[green]✓ Omni base URL set to:[/green] "
+                        f"[white]{config['omni_base_url']}[/white]"
+                    )
+                else:
+                    ui_mod.console.print("[red]❌ Invalid URL[/red]")
+            else:
+                ui_mod.console.print("[yellow]⚠️  Omni URL unchanged[/yellow]")
+
+        elif choice == "10":
+            current = config.get("omni_top_k", 5)
+            try:
+                value = int(
+                    input(
+                        f"Enter Omni top_k (1-20) [current: {current}]: "
+                    ).strip()
+                    or str(current)
+                )
+                if 1 <= value <= 20:
+                    config["omni_top_k"] = value
+                    ui_mod.console.print(
+                        "[green]✓ Omni top_k set to:[/green] "
+                        f"[white]{value}[/white]"
+                    )
+                else:
+                    ui_mod.console.print(
+                        "[red]❌ Omni top_k must be between 1 and 20[/red]"
+                    )
+            except ValueError:
+                ui_mod.console.print("[red]❌ Invalid top_k value[/red]")
+
+        elif choice == "11":
+            current = config.get("direct_num_ctx_cap", 4096)
+            try:
+                value = int(
+                    input(
+                        "Enter direct num_ctx cap (512-32768) "
+                        f"[current: {current}]: "
+                    ).strip()
+                    or str(current)
+                )
+                if 512 <= value <= 32768:
+                    config["direct_num_ctx_cap"] = value
+                    ui_mod.console.print(
+                        "[green]✓ Direct num_ctx cap set to:[/green] "
+                        f"[white]{value}[/white]"
+                    )
+                else:
+                    ui_mod.console.print(
+                        "[red]❌ direct num_ctx cap must be 512-32768[/red]"
+                    )
+            except ValueError:
+                ui_mod.console.print("[red]❌ Invalid num_ctx value[/red]")
+
+        elif choice == "12":
+            current = str(
+                config.get("direct_memory_fallback_model", "")
+            ).strip()
+            ui_mod.console.print("\n[bold]Direct OOM fallback model[/bold]")
+            ui_mod.console.print(
+                "[dim]Leave blank to disable model switch fallback[/dim]"
+            )
+            if current:
+                ui_mod.console.print(
+                    f"[dim]Current:[/dim] [cyan]{current}[/cyan]"
+                )
+            new_model = input(
+                "Enter fallback model (e.g. gemma3:latest): "
+            ).strip()
+            config["direct_memory_fallback_model"] = new_model
+            if new_model:
+                ui_mod.console.print(
+                    "[green]✓ Direct OOM fallback model set to:[/green] "
+                    f"[white]{new_model}[/white]"
+                )
+            else:
+                ui_mod.console.print(
+                    "[yellow]⚠️  Direct OOM fallback model disabled[/yellow]"
+                )
+
+        elif choice == "13":
+            current = bool(config.get("chat_interface_prefer_direct", True))
+            config["chat_interface_prefer_direct"] = not current
+            status = "on" if not current else "off"
+            ui_mod.console.print(
+                "[green]✓ Chat interface direct preference:[/green] "
+                f"[white]{status}[/white]"
+            )
+
+        elif choice == "14":
             return config
 
         else:

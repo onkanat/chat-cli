@@ -8,7 +8,7 @@ Uses official ollama package (https://github.com/ollama/ollama-python).
 from __future__ import annotations
 
 from threading import Lock
-from typing import Iterator, List, Optional, Dict, Any, Union
+from typing import Iterator, List, Optional, Dict, Any
 
 from ollama import Client
 from ollama._types import ChatResponse, GenerateResponse, ListResponse
@@ -80,7 +80,7 @@ def delete_model(name: str) -> bool:
     try:
         get_client().delete(name)
         return True
-    except Exception as e:
+    except Exception:
         # We might want to log this or raise it, but preserving bool return for now 
         # based on existing usage, or switching to raise?
         # The plan said "better error handling", so let's log or re-raise if critical.
@@ -102,10 +102,18 @@ def load_model(name: str) -> bool:
 def chat_stream(
     model: str,
     messages: List[Dict[str, Any]],
+    options: Dict[str, Any] | None = None,
 ) -> Iterator[str]:
     """Stream chat responses, yielding message content."""
     try:
-        stream = get_client().chat(model=model, messages=messages, stream=True)
+        kwargs: Dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "stream": True,
+        }
+        if options:
+            kwargs["options"] = options
+        stream = get_client().chat(**kwargs)
         for chunk in stream:
             if hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
                 content = chunk.message.content
@@ -119,10 +127,17 @@ def chat_stream(
 def chat_sync(
     model: str,
     messages: List[Dict[str, Any]],
+    options: Dict[str, Any] | None = None,
 ) -> str:
     """Synchronous chat, returns full response."""
     try:
-        response: ChatResponse = get_client().chat(model=model, messages=messages)
+        kwargs: Dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+        }
+        if options:
+            kwargs["options"] = options
+        response: ChatResponse = get_client().chat(**kwargs)
         return response.message.content
     except Exception as e:
         return f"Error: {e}"
@@ -150,7 +165,10 @@ def generate_sync(
 ) -> str:
     """Synchronous generate, returns full response."""
     try:
-        response: GenerateResponse = get_client().generate(model=model, prompt=prompt)
+        response: GenerateResponse = get_client().generate(
+            model=model,
+            prompt=prompt,
+        )
         return response.response
     except Exception as e:
         return f"Error: {e}"
@@ -159,7 +177,7 @@ def generate_sync(
 def set_current_model(name: str) -> bool:
     """
     Set current model (checks if model exists).
-    
+
     Note: Official ollama package doesn't have explicit "set current" -
     this just verifies the model exists locally.
     """
@@ -177,7 +195,7 @@ def run_ollama_cli(args: List[str]) -> tuple[int, str, str]:
     """
     import shutil
     import subprocess
-    
+
     if shutil.which("ollama") is None:
         return 127, "", "ollama CLI not found"
     cmd = ["ollama"] + args
@@ -210,7 +228,7 @@ def run_ollama_cli_stream(args: List[str]) -> Iterator[str] | None:
     import shutil
     import subprocess
     from subprocess import PIPE
-    
+
     if shutil.which("ollama") is None:
         return None
     cmd = ["ollama"] + args
@@ -223,7 +241,7 @@ def run_ollama_cli_stream(args: List[str]) -> Iterator[str] | None:
             encoding="utf-8",
             errors="replace",
         ) as p:
-            # We can't easily timeout a generator without async, 
+            # We can't easily timeout a generator without async,
             # but at least we are safer with the context manager.
             if p.stdout:
                 for line in p.stdout:

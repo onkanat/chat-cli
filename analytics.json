@@ -485,6 +485,38 @@
       "messages": 0,
       "tokens": 0,
       "commands": []
+    },
+    {
+      "id": "20260412_142412",
+      "start_time": "2026-04-12T14:24:12.525405",
+      "model": "qwen3.5:2b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260412_145059",
+      "start_time": "2026-04-12T14:50:59.447290",
+      "model": "qwen3.5:2b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260412_145507",
+      "start_time": "2026-04-12T14:55:07.303280",
+      "model": "qwen3.5:2b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260412_150608",
+      "start_time": "2026-04-12T15:06:08.734076",
+      "model": "qwen3.5:2b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
     }
   ],
   "total_messages": 0,
@@ -492,7 +524,7 @@
   "total_response_time": 0.0,
   "models_used": {},
   "commands_used": {
-    "help": 45,
+    "help": 46,
     "list": 1,
     "model": 7,
     "shell": 20,
@@ -519,7 +551,7 @@
     "suggest": 6,
     "pull": 16,
     "models": 9,
-    "quit": 35,
+    "quit": 38,
     "calc": 5,
     "file": 14,
     "personas": 3,
@@ -530,7 +562,7 @@
     "rm": 1,
     "read_file": 1,
     "new_sesion": 1,
-    "wiki": 23,
+    "wiki": 35,
     "omni": 1,
     "setings": 1
   },

@@ -7,20 +7,25 @@ Provides /wiki commands that communicate with omni-daemon's wiki endpoints:
     /wiki search <query>    — Semantic search over wiki pages
     /wiki ingest <path>     — Trigger LLM wiki-page generation for a file
     /wiki lint              — LLM health-check of the wiki
+    /wiki status            — Wiki statistics from omni-daemon
+    /wiki search <query>    — Semantic search over wiki pages
+    /wiki ingest <path>     — Trigger LLM wiki-page generation for a file
+    /wiki lint              — LLM health-check of the wiki
     /wiki open <page>       — Print a wiki page's markdown to the terminal
+    /wiki edit <page>       — Open a wiki page in the system $EDITOR
+    /wiki pin <page>        — Pin a wiki page to the current chat session context
+    /wiki link <src> <tgt>  — Manually create a wiki-link between two pages
     /wiki context on|off    — Inject relevant wiki passages into every chat turn
-
-Auto-context mode: when enabled, each user message is silently queried against
-the wiki and the top-k results are prepended to the conversation as a system
-message before the LLM sees the user's input.
 """
 
 from __future__ import annotations
 
 import json
 import httpx
+import os
+import subprocess
 from pathlib import Path
-from typing import Dict, List, Callable, Any
+from typing import Dict, List, Callable, Any, Optional
 
 from lib.plugins import PluginBase
 from rich.console import Console
@@ -39,6 +44,7 @@ _DEFAULTS: Dict[str, Any] = {
     "auto_context": False,
     "context_top_k": 3,
     "request_timeout": 30,
+    "default_editor": "vim",
 }
 
 
@@ -48,11 +54,12 @@ class WikiPlugin(PluginBase):
     def __init__(self):
         super().__init__()
         self.name = "WikiPlugin"
-        self.version = "1.0.0"
-        self.description = "Interact with LLMwiki via omni-daemon"
+        self.version = "1.1.0"
+        self.description = "Interact and manage LLMwiki via omni-daemon & Obsidian style"
         self.author = "Omni-Context"
         self._cfg: Dict[str, Any] = dict(_DEFAULTS)
         self._auto_context: bool = False
+        self._pinned_pages: List[Path] = []
 
     # ------------------------------------------------------------------
     # PluginBase interface
@@ -96,34 +103,45 @@ class WikiPlugin(PluginBase):
 
     def before_chat_turn(self, user_message: str, context: Dict[str, Any]) -> None:
         """
-        If auto_context is enabled, search wiki for the user's message and
-        inject results as a system message into the conversation history.
-
-        chat-cli must call plugin.before_chat_turn() for plugins that expose it.
+        Injects auto-context query results AND pinned pages into the context history.
         """
-        if not self._auto_context:
-            return
+        injected_segments = []
 
-        top_k = self._cfg.get("context_top_k", 3)
-        results = self._api_wiki_search(user_message, top_k=top_k)
-        if not results:
-            return
+        # 1. Handle Pinned Pages (Static Context)
+        if self._pinned_pages:
+            pinned_text = []
+            for path in self._pinned_pages:
+                try:
+                    content = path.read_text(encoding="utf-8")
+                    pinned_text.append(f"### [pinned] {path.name}\n\n{content}")
+                except Exception:
+                    continue
+            if pinned_text:
+                injected_segments.append(
+                    "**[STATIC CONTEXT]** The following pages are pinned by the user for this session:\n\n"
+                    + "\n\n---\n\n".join(pinned_text)
+                )
 
-        passages = []
-        for item in results:
-            path = item.get("path", "")
-            content = item.get("content", "").strip()
-            score = item.get("score", 0)
-            passages.append(f"**[wiki]** `{path}` (score: {score:.2f})\n\n{content}")
+        # 2. Handle Auto-Context (Semantic Context)
+        if self._auto_context:
+            top_k = self._cfg.get("context_top_k", 3)
+            results = self._api_wiki_search(user_message, top_k=top_k)
+            if results:
+                passages = []
+                for item in results:
+                    path = item.get("path", "")
+                    content = item.get("content", "").strip()
+                    score = item.get("score", 0)
+                    passages.append(f"**[wiki]** `{path}` (score: {score:.2f})\n\n{content}")
+                
+                injected_segments.append(
+                    "**[DYNAMIC CONTEXT]** Relevant excerpts from your wiki:\n\n"
+                    + "\n\n---\n\n".join(passages)
+                )
 
-        injected = "\n\n---\n\n".join(passages)
-        system_msg = (
-            "The following excerpts from the user's personal wiki are relevant to this query:\n\n"
-            + injected
-        )
-
-        if "history" in context:
-            context["history"].append({"role": "system", "text": system_msg})
+        if injected_segments and "history" in context:
+            full_system_msg = "\n\n========================================\n\n".join(injected_segments)
+            context["history"].append({"role": "system", "text": full_system_msg})
 
     # ------------------------------------------------------------------
     # /wiki dispatcher
@@ -145,6 +163,9 @@ class WikiPlugin(PluginBase):
             "index":   self._cmd_index,
             "lint":    self._cmd_lint,
             "open":    self._cmd_open,
+            "edit":    self._cmd_edit,
+            "pin":     self._cmd_pin,
+            "link":    self._cmd_link,
             "context": self._cmd_context,
         }
 
@@ -176,6 +197,7 @@ class WikiPlugin(PluginBase):
         table.add_row("Wiki path", str(data.get("wiki_path", "?")))
         table.add_row("Last log entry", str(data.get("last_log_entry", "—")))
         table.add_row("Auto-context (plugin)", "✅ on" if self._auto_context else "⏸️ off")
+        table.add_row("Pinned pages", str(len(self._pinned_pages)))
 
         console.print(table)
 
@@ -276,40 +298,45 @@ class WikiPlugin(PluginBase):
                 "text": f"Wiki lint report ({pages} pages checked):\n\n{report}",
             })
 
+    def _find_file(self, keyword: str) -> Optional[Path]:
+        """Find a file in the wiki root matching keyword substring."""
+        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
+        if not root_dir.exists():
+            return None
+        
+        # Priority 1: Exact slug match in wiki/concepts or wiki/sources
+        for folder in ["wiki/concepts", "wiki/sources", "wiki/entities"]:
+            target = root_dir / folder / f"{keyword}.md"
+            if target.exists():
+                return target
+
+        # Priority 2: Substring match in names
+        all_files = list(root_dir.rglob("*.md")) + list(root_dir.rglob("*.txt"))
+        for p in all_files:
+            if keyword in p.name.lower() or keyword in str(p.relative_to(root_dir)).lower():
+                return p
+        return None
+
     def _cmd_open(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Print a wiki page to the terminal by partial name or slug."""
+        """Print a wiki page to the terminal."""
         if not args:
             console.print("[yellow]Usage: /wiki open <page_name_or_slug>[/yellow]")
             return
 
         keyword = args[0].lower()
-        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
-        
-        # Scan everything in the wiki root (wiki/, raw/, etc.)
-        all_files = list(root_dir.rglob("*"))
-        
-        # Candidates: check if keyword matches stem, full name, or relative path
-        candidates = []
-        for p in all_files:
-            if not p.is_file() or p.suffix.lower() not in (".md", ".txt", ".f90"):
-                continue
-                
-            rel_path = str(p.relative_to(root_dir)).lower()
-            if keyword in rel_path or keyword in p.name.lower():
-                candidates.append(p)
+        target = self._find_file(keyword)
 
-        if not candidates:
+        if not target:
             console.print(f"[red]No file found matching: {keyword}[/red]")
             return
 
-        target = candidates[0]
         try:
             content = target.read_text(encoding="utf-8")
         except Exception as e:
             console.print(f"[red]Cannot read {target}: {e}[/red]")
             return
 
-        rel = target.relative_to(root_dir)
+        rel = target.relative_to(Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"])))
         console.print(
             Panel(
                 Markdown(content),
@@ -323,6 +350,83 @@ class WikiPlugin(PluginBase):
                 "role": "system",
                 "text": f"User opened wiki page `{rel}`:\n\n{content}",
             })
+
+    def _cmd_edit(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Open a wiki page in the system editor."""
+        if not args:
+            console.print("[yellow]Usage: /wiki edit <page_name_or_slug>[/yellow]")
+            return
+
+        keyword = args[0].lower()
+        target = self._find_file(keyword)
+
+        if not target:
+            console.print(f"[red]No file found matching: {keyword}[/red]")
+            return
+
+        editor = os.environ.get("EDITOR") or self._cfg.get("default_editor", "vim")
+        console.print(f"[dim]Opening {target.name} with {editor}...[/dim]")
+        try:
+            subprocess.call([editor, str(target)])
+        except Exception as e:
+            console.print(f"[red]Failed to launch editor: {e}[/red]")
+
+    def _cmd_pin(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Pin/unpin a page to the current session context: /wiki pin [page|list|clear]"""
+        if not args:
+            console.print("[yellow]Usage: /wiki pin <page_name> | list | clear[/yellow]")
+            return
+
+        cmd = args[0].lower()
+        if cmd == "list":
+            if not self._pinned_pages:
+                console.print("[dim]No pages pinned.[/dim]")
+            for p in self._pinned_pages:
+                console.print(f"📌 [cyan]{p.name}[/cyan]")
+            return
+        
+        if cmd == "clear":
+            self._pinned_pages = []
+            console.print("[yellow]Pinned pages cleared.[/yellow]")
+            return
+
+        target = self._find_file(cmd)
+        if not target:
+            console.print(f"[red]No file found matching: {cmd}[/red]")
+            return
+
+        if target in self._pinned_pages:
+            self._pinned_pages.remove(target)
+            console.print(f"📍 [yellow]Unpinned:[/yellow] {target.name}")
+        else:
+            self._pinned_pages.append(target)
+            console.print(f"📌 [green]Pinned to context:[/green] {target.name}")
+
+    def _cmd_link(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Manually add a wiki-link from one page to another: /wiki link <source> <target>"""
+        if len(args) < 2:
+            console.print("[yellow]Usage: /wiki link <source_page> <target_page>[/yellow]")
+            return
+
+        src_kw, tgt_kw = args[0].lower(), args[1].lower()
+        src_file = self._find_file(src_kw)
+        tgt_file = self._find_file(tgt_kw)
+
+        if not src_file:
+            console.print(f"[red]Source page not found: {src_kw}[/red]")
+            return
+        if not tgt_file:
+            console.print(f"[red]Target page not found: {tgt_kw}[/red]")
+            return
+
+        # Simple append of the wiki-link to the source file
+        link_str = f"\n\n- Related: [[{tgt_file.stem}]]\n"
+        try:
+            with open(src_file, "a", encoding="utf-8") as f:
+                f.write(link_str)
+            console.print(f"[green]✓ Linked [[{src_file.stem}]] -> [[{tgt_file.stem}]][/green]")
+        except Exception as e:
+            console.print(f"[red]Linking failed: {e}[/red]")
 
     def _cmd_context(self, args: List[str], context: Dict[str, Any]) -> None:
         """Toggle auto-context injection: /wiki context on|off"""
@@ -391,11 +495,14 @@ class WikiPlugin(PluginBase):
         table.add_column("Description", style="white")
 
         table.add_row("/wiki status", "Wiki istatistiklerini göster")
-        table.add_row("/wiki search <sorgu>", "Wiki sayfalarında semantik arama yap")
-        table.add_row("/wiki ingest <dosya>", "Bir dosyayı wiki'ye ingest et (LLM)")
-        table.add_row("/wiki index", "Tüm wiki dosyalarını Qdrant'a toplu index'le")
-        table.add_row("/wiki lint", "Wiki sağlık kontrolü (LLM raporu)")
-        table.add_row("/wiki open <sayfa>", "Wiki sayfasını terminalde görüntüle")
-        table.add_row("/wiki context on|off", "Otomatik wiki context enjeksiyonunu aç/kapat")
+        table.add_row("/wiki search <sorgu>", "Sementik arama yap")
+        table.add_row("/wiki ingest <dosya>", "Dosyayı wiki'ye ingest et")
+        table.add_row("/wiki pin <sayfa>", "Sayfayı sabitle (context)")
+        table.add_row("/wiki open <sayfa>", "Sayfayı terminalde oku")
+        table.add_row("/wiki edit <sayfa>", "Sayfayı editörde aç")
+        table.add_row("/wiki link <s1> <s2>", "İki sayfa arasında bağ kur")
+        table.add_row("/wiki lint", "Wiki sağlık kontrolü")
+        table.add_row("/wiki context on|off", "Otomatik context enjeksiyonu")
 
         console.print(table)
+

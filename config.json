@@ -1,9 +1,9 @@
 {
-  "default_model": "qwen3.5:2b",
+  "default_model": "nemotron-cascade-2:30b",
   "system_message": "Sen hızlı ve akıcı düşünen bir asistanısın",
-  "max_tokens": 8194,
+  "max_tokens": 16384,
   "ollama_servers": {
-    "active": "local",
+    "active": "remote",
     "profiles": {
       "local": {
         "label": "Localhost",
@@ -17,7 +17,7 @@
   },
   "persona": {
     "current_persona": "python_yapay_zeka",
-    "last_updated": "2026-04-12T12:06:08.735338+00:00"
+    "last_updated": "2026-04-13T17:58:47.426805+00:00"
   },
   "generation_route": "direct",
   "fallback_to_direct_on_error": true,
@@ -25,7 +25,7 @@
   "omni_top_k": 5,
   "direct_num_ctx_cap": 4096,
   "direct_memory_fallback_model": "gemma3:latest",
-  "chat_interface_prefer_direct": false,
+  "chat_interface_prefer_direct": true,
   "performance": {
     "temperature": 0.0,
     "num_ctx": 4096,

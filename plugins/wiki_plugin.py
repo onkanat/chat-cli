@@ -1,21 +1,17 @@
 """
-Wiki plugin for chat-cli.
+Wiki plugin for chat-cli (Omni-Context V2 Integration).
 
-Provides /wiki commands that communicate with omni-daemon's wiki endpoints:
-
-    /wiki status            — Wiki statistics from omni-daemon
-    /wiki search <query>    — Semantic search over wiki pages
-    /wiki ingest <path>     — Trigger LLM wiki-page generation for a file
-    /wiki lint              — LLM health-check of the wiki
-    /wiki status            — Wiki statistics from omni-daemon
-    /wiki search <query>    — Semantic search over wiki pages
-    /wiki ingest <path>     — Trigger LLM wiki-page generation for a file
-    /wiki lint              — LLM health-check of the wiki
-    /wiki open <page>       — Print a wiki page's markdown to the terminal
-    /wiki edit <page>       — Open a wiki page in the system $EDITOR
-    /wiki pin <page>        — Pin a wiki page to the current chat session context
-    /wiki link <src> <tgt>  — Manually create a wiki-link between two pages
-    /wiki context on|off    — Inject relevant wiki passages into every chat turn
+Provides direct slash commands for Wiki operations:
+    /wiki pin <sayfa>                 - Pin a wiki page to context
+    /wiki unpin                       - Clear active pinned pages
+    /wiki search <sorgu>              - Semantic search over wiki
+    /wiki open <satır_no>             - Open/inject a search result by its row number
+    /wiki show <sayfa>                - Read a page's markdown in terminal without pinning
+    /wiki add <dosya> <başlık> [içerik] - Create a new wiki page (opens multi-line prompt if no content)
+    /wiki edit <dosya>                - Edit a wiki page (opens full file in multi-line prompt or system editor)
+    /wiki delete <dosya>              - Delete a wiki page
+    /wiki list                        - List all wiki files
+    /wiki help                   - Show wiki command reference
 """
 
 from __future__ import annotations
@@ -32,12 +28,30 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.table import Table
+from rich.prompt import Confirm
+import threading
+
+# Fallback multiline input
+def _fallback_multiline(prompt: str) -> str:
+    print(prompt)
+    lines = []
+    while True:
+        try:
+            line = input("... ")
+            lines.append(line)
+        except EOFError:
+            break
+    return "\n".join(lines)
+
+
+# Try to load input_handler from lib
+try:
+    from lib.input_handler import get_multiline_input as chat_multiline
+except ImportError:
+    chat_multiline = _fallback_multiline
 
 console = Console()
 
-# --------------------------------------------------------------------------- #
-# Default config (overridden by plugin_config.json)
-# --------------------------------------------------------------------------- #
 _DEFAULTS: Dict[str, Any] = {
     "omni_daemon_url": "http://localhost:8000",
     "wiki_path": "/Users/hakankilicaslan/Git/LLMwiki",
@@ -47,26 +61,53 @@ _DEFAULTS: Dict[str, Any] = {
     "default_editor": "vim",
 }
 
-
 class WikiPlugin(PluginBase):
-    """Wiki management and auto-context plugin for chat-cli."""
+    """Wiki management and Omni-Context V2 plugin."""
 
     def __init__(self):
         super().__init__()
         self.name = "WikiPlugin"
-        self.version = "1.1.0"
-        self.description = "Interact and manage LLMwiki via omni-daemon & Obsidian style"
+        self.version = "2.0.0"
+        self.description = "Direct Wiki commands (Omni-Context V2)"
         self.author = "Omni-Context"
         self._cfg: Dict[str, Any] = dict(_DEFAULTS)
         self._auto_context: bool = False
         self._pinned_pages: List[Path] = []
-
-    # ------------------------------------------------------------------
-    # PluginBase interface
-    # ------------------------------------------------------------------
+        self._last_search_results: List[Dict] = []
+        self._background_thread = None
 
     def get_commands(self) -> Dict[str, Callable]:
-        return {"wiki": self.wiki_command}
+        return {
+            "wiki": self._cmd_wiki,
+        }
+
+    def _cmd_wiki(self, args: List[str], context: Dict[str, Any]) -> None:
+        if not args:
+            self._cmd_help([], context)
+            return
+
+        subcmd = args[0].lower()
+        sub_args = args[1:]
+
+        routers = {
+            "pin": self._cmd_pin,
+            "unpin": self._cmd_unpin,
+            "search": self._cmd_search,
+            "open": self._cmd_open,
+            "show": self._cmd_show,
+            "add": self._cmd_add,
+            "edit": self._cmd_edit,
+            "delete": self._cmd_delete,
+            "list": self._cmd_list,
+            "lint": self._cmd_lint,
+            "help": self._cmd_help,
+        }
+
+        if subcmd in routers:
+            routers[subcmd](sub_args, context)
+        else:
+            console.print(f"[red]Bilinmeyen wiki alt-komutu:[/red] {subcmd}")
+            self._cmd_help([], context)
 
     def get_info(self) -> Dict[str, Any]:
         return {
@@ -74,11 +115,10 @@ class WikiPlugin(PluginBase):
             "version": self.version,
             "description": self.description,
             "author": self.author,
-            "commands": ["wiki"],
+            "commands": list(self.get_commands().keys()),
         }
 
     def on_load(self) -> None:
-        # Merge plugin_config.json settings if present
         config_path = Path("plugin_config.json")
         if config_path.exists():
             try:
@@ -90,24 +130,12 @@ class WikiPlugin(PluginBase):
                 pass
 
         self._auto_context = self._cfg.get("auto_context", False)
-        console.print("[green]✓ Wiki plugin loaded! 📚[/green]")
-        if self._auto_context:
-            console.print("[dim]  Auto-context: [green]ON[/green][/dim]")
-
-    def on_unload(self) -> None:
-        console.print("[yellow]📤 Wiki plugin unloaded[/yellow]")
-
-    # ------------------------------------------------------------------
-    # Auto-context hook (called by chat-cli if it supports pre-turn hooks)
-    # ------------------------------------------------------------------
+        console.print("[green]✓ Wiki plugin (V2) loaded! 📚[/green]")
+        console.print("[dim]Type /wiki help for available commands.[/dim]")
 
     def before_chat_turn(self, user_message: str, context: Dict[str, Any]) -> None:
-        """
-        Injects auto-context query results AND pinned pages into the context history.
-        """
         injected_segments = []
 
-        # 1. Handle Pinned Pages (Static Context)
         if self._pinned_pages:
             pinned_text = []
             for path in self._pinned_pages:
@@ -122,7 +150,6 @@ class WikiPlugin(PluginBase):
                     + "\n\n---\n\n".join(pinned_text)
                 )
 
-        # 2. Handle Auto-Context (Semantic Context)
         if self._auto_context:
             top_k = self._cfg.get("context_top_k", 3)
             results = self._api_wiki_search(user_message, top_k=top_k)
@@ -144,365 +171,371 @@ class WikiPlugin(PluginBase):
             context["history"].append({"role": "system", "text": full_system_msg})
 
     # ------------------------------------------------------------------
-    # /wiki dispatcher
-    # ------------------------------------------------------------------
-
-    def wiki_command(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Handle /wiki <subcommand> [args...]."""
-        if not args:
-            self._print_help()
-            return
-
-        sub = args[0].lower()
-        rest = args[1:]
-
-        dispatch = {
-            "status":  self._cmd_status,
-            "search":  self._cmd_search,
-            "ingest":  self._cmd_ingest,
-            "index":   self._cmd_index,
-            "lint":    self._cmd_lint,
-            "open":    self._cmd_open,
-            "edit":    self._cmd_edit,
-            "pin":     self._cmd_pin,
-            "link":    self._cmd_link,
-            "context": self._cmd_context,
-        }
-
-        handler = dispatch.get(sub)
-        if handler is None:
-            console.print(f"[red]Unknown subcommand: {sub}[/red]")
-            self._print_help()
-        else:
-            handler(rest, context)
-
-    # ------------------------------------------------------------------
-    # Subcommands
-    # ------------------------------------------------------------------
-
-    def _cmd_status(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Show wiki statistics."""
-        data = self._get("/wiki/status")
-        if data is None:
-            return
-
-        table = Table(title="📚 Wiki Status", show_header=True, header_style="bold blue")
-        table.add_column("Field", style="cyan")
-        table.add_column("Value", style="white")
-
-        table.add_row("Wiki pages", str(data.get("wiki_page_count", "?")))
-        table.add_row("Raw files", str(data.get("raw_file_count", "?")))
-        table.add_row("LLM model", str(data.get("llm_model", "?")))
-        table.add_row("Auto-ingest", "✅ on" if data.get("auto_ingest_enabled") else "⏸️ off")
-        table.add_row("Wiki path", str(data.get("wiki_path", "?")))
-        table.add_row("Last log entry", str(data.get("last_log_entry", "—")))
-        table.add_row("Auto-context (plugin)", "✅ on" if self._auto_context else "⏸️ off")
-        table.add_row("Pinned pages", str(len(self._pinned_pages)))
-
-        console.print(table)
-
-    def _cmd_search(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Semantic search over wiki pages."""
-        if not args:
-            console.print("[yellow]Usage: /wiki search <query>[/yellow]")
-            return
-
-        query = " ".join(args)
-        top_k = self._cfg.get("context_top_k", 5)
-        results = self._api_wiki_search(query, top_k=top_k)
-        if results is None:
-            return
-
-        if not results:
-            console.print("[yellow]No wiki pages matched your query.[/yellow]")
-            return
-
-        console.print(f"\n[bold blue]🔍 Wiki search:[/bold blue] [white]{query}[/white]\n")
-        for i, item in enumerate(results, 1):
-            score = item.get("score", 0)
-            path = item.get("path", "")
-            snippet = item.get("content", "").strip()[:300]
-            console.print(
-                Panel(
-                    f"[dim]{snippet}…[/dim]",
-                    title=f"[cyan]{i}. {Path(path).name}[/cyan]  [green](score: {score:.2f})[/green]",
-                    expand=False,
-                )
-            )
-
-        # Also inject into conversation context so the model can reference them
-        if "history" in context and results:
-            joined = "\n\n---\n\n".join(
-                f"`{r.get('path', '')}` (score: {r.get('score', 0):.2f})\n{r.get('content', '')}"
-                for r in results
-            )
-            context["history"].append({
-                "role": "system",
-                "text": f"User searched the wiki for: «{query}». Top results:\n\n{joined}",
-            })
-
-    def _cmd_ingest(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Manually trigger wiki page generation for a file."""
-        if not args:
-            console.print("[yellow]Usage: /wiki ingest <file_path>[/yellow]")
-            return
-
-        file_path = str(Path(args[0]).expanduser().resolve())
-        console.print(f"[dim]Ingesting: {file_path}[/dim]")
-        data = self._post("/wiki/ingest", {"file_path": file_path})
-        if data is None:
-            return
-
-        if data.get("ok"):
-            console.print(f"[green]✓ Wiki page created:[/green] [white]{data.get('wiki_page')}[/white]")
-            console.print(f"[dim]  Slug: {data.get('slug')}[/dim]")
-        else:
-            console.print(f"[red]✗ Ingest failed:[/red] {data.get('reason', 'unknown error')}")
-
-    def _cmd_index(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Trigger bulk indexing of LLMwiki."""
-        console.print("[dim]Starting wiki bulk indexing (this may take a moment)…[/dim]")
-        data = self._post("/wiki/index", {})
-        if data is None:
-            return
-
-        if data.get("ok"):
-            indexed = data.get("indexed_count", 0)
-            skipped = data.get("skipped_count", 0)
-            errors = data.get("error_count", 0)
-            console.print(f"[green]✓ Bulk indexing complete![/green]")
-            console.print(f"[dim]  Indexed: {indexed} | Skipped: {skipped} | Errors: {errors}[/dim]")
-        else:
-            console.print("[red]✗ Bulk indexing failed.[/red]")
-
-    def _cmd_lint(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Run LLM health-check on the wiki."""
-        console.print("[dim]Running wiki lint (LLM call — may take a moment)…[/dim]")
-        data = self._post("/wiki/lint", {})
-        if data is None:
-            return
-
-        pages = data.get("pages_checked", "?")
-        report = data.get("report", "No report returned.")
-        console.print(
-            Panel(
-                Markdown(report),
-                title=f"[bold blue]🩺 Wiki Lint Report[/bold blue] — [dim]{pages} pages checked[/dim]",
-                expand=True,
-            )
-        )
-
-        if "history" in context:
-            context["history"].append({
-                "role": "system",
-                "text": f"Wiki lint report ({pages} pages checked):\n\n{report}",
-            })
-
-    def _find_file(self, keyword: str) -> Optional[Path]:
-        """Find a file in the wiki root matching keyword substring."""
-        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
-        if not root_dir.exists():
-            return None
-        
-        # Priority 1: Exact slug match in wiki/concepts or wiki/sources
-        for folder in ["wiki/concepts", "wiki/sources", "wiki/entities"]:
-            target = root_dir / folder / f"{keyword}.md"
-            if target.exists():
-                return target
-
-        # Priority 2: Substring match in names
-        all_files = list(root_dir.rglob("*.md")) + list(root_dir.rglob("*.txt"))
-        for p in all_files:
-            if keyword in p.name.lower() or keyword in str(p.relative_to(root_dir)).lower():
-                return p
-        return None
-
-    def _cmd_open(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Print a wiki page to the terminal."""
-        if not args:
-            console.print("[yellow]Usage: /wiki open <page_name_or_slug>[/yellow]")
-            return
-
-        keyword = args[0].lower()
-        target = self._find_file(keyword)
-
-        if not target:
-            console.print(f"[red]No file found matching: {keyword}[/red]")
-            return
-
-        try:
-            content = target.read_text(encoding="utf-8")
-        except Exception as e:
-            console.print(f"[red]Cannot read {target}: {e}[/red]")
-            return
-
-        rel = target.relative_to(Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"])))
-        console.print(
-            Panel(
-                Markdown(content),
-                title=f"[bold blue]📄 {rel}[/bold blue]",
-                expand=True,
-            )
-        )
-
-        if "history" in context:
-            context["history"].append({
-                "role": "system",
-                "text": f"User opened wiki page `{rel}`:\n\n{content}",
-            })
-
-    def _cmd_edit(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Open a wiki page in the system editor."""
-        if not args:
-            console.print("[yellow]Usage: /wiki edit <page_name_or_slug>[/yellow]")
-            return
-
-        keyword = args[0].lower()
-        target = self._find_file(keyword)
-
-        if not target:
-            console.print(f"[red]No file found matching: {keyword}[/red]")
-            return
-
-        editor = os.environ.get("EDITOR") or self._cfg.get("default_editor", "vim")
-        console.print(f"[dim]Opening {target.name} with {editor}...[/dim]")
-        try:
-            subprocess.call([editor, str(target)])
-        except Exception as e:
-            console.print(f"[red]Failed to launch editor: {e}[/red]")
-
-    def _cmd_pin(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Pin/unpin a page to the current session context: /wiki pin [page|list|clear]"""
-        if not args:
-            console.print("[yellow]Usage: /wiki pin <page_name> | list | clear[/yellow]")
-            return
-
-        cmd = args[0].lower()
-        if cmd == "list":
-            if not self._pinned_pages:
-                console.print("[dim]No pages pinned.[/dim]")
-            for p in self._pinned_pages:
-                console.print(f"📌 [cyan]{p.name}[/cyan]")
-            return
-        
-        if cmd == "clear":
-            self._pinned_pages = []
-            console.print("[yellow]Pinned pages cleared.[/yellow]")
-            return
-
-        target = self._find_file(cmd)
-        if not target:
-            console.print(f"[red]No file found matching: {cmd}[/red]")
-            return
-
-        if target in self._pinned_pages:
-            self._pinned_pages.remove(target)
-            console.print(f"📍 [yellow]Unpinned:[/yellow] {target.name}")
-        else:
-            self._pinned_pages.append(target)
-            console.print(f"📌 [green]Pinned to context:[/green] {target.name}")
-
-    def _cmd_link(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Manually add a wiki-link from one page to another: /wiki link <source> <target>"""
-        if len(args) < 2:
-            console.print("[yellow]Usage: /wiki link <source_page> <target_page>[/yellow]")
-            return
-
-        src_kw, tgt_kw = args[0].lower(), args[1].lower()
-        src_file = self._find_file(src_kw)
-        tgt_file = self._find_file(tgt_kw)
-
-        if not src_file:
-            console.print(f"[red]Source page not found: {src_kw}[/red]")
-            return
-        if not tgt_file:
-            console.print(f"[red]Target page not found: {tgt_kw}[/red]")
-            return
-
-        # Simple append of the wiki-link to the source file
-        link_str = f"\n\n- Related: [[{tgt_file.stem}]]\n"
-        try:
-            with open(src_file, "a", encoding="utf-8") as f:
-                f.write(link_str)
-            console.print(f"[green]✓ Linked [[{src_file.stem}]] -> [[{tgt_file.stem}]][/green]")
-        except Exception as e:
-            console.print(f"[red]Linking failed: {e}[/red]")
-
-    def _cmd_context(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Toggle auto-context injection: /wiki context on|off"""
-        if not args or args[0].lower() not in ("on", "off"):
-            state = "[green]ON[/green]" if self._auto_context else "[red]OFF[/red]"
-            console.print(f"[dim]Auto-context is currently {state}[/dim]")
-            console.print("[yellow]Usage: /wiki context on|off[/yellow]")
-            return
-
-        self._auto_context = args[0].lower() == "on"
-        state = "[green]ON[/green]" if self._auto_context else "[red]OFF[/red]"
-        console.print(f"[bold]Wiki auto-context:[/bold] {state}")
-
-    # ------------------------------------------------------------------
     # HTTP helpers
     # ------------------------------------------------------------------
 
     def _base_url(self) -> str:
         return self._cfg.get("omni_daemon_url", _DEFAULTS["omni_daemon_url"]).rstrip("/")
 
-    def _timeout(self) -> int:
-        return int(self._cfg.get("request_timeout", 30))
-
-    def _get(self, path: str) -> Dict | None:
-        url = self._base_url() + f"/api/v1{path}"
-        try:
-            resp = httpx.get(url, timeout=self._timeout())
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.ConnectError:
-            console.print(f"[red]Cannot connect to omni-daemon at {self._base_url()}[/red]")
-            console.print("[dim]Is omni-daemon running? (uvicorn src.main:app)[/dim]")
-            return None
-        except Exception as e:
-            console.print(f"[red]Request failed:[/red] {e}")
-            return None
-
     def _post(self, path: str, body: dict) -> Dict | None:
         url = self._base_url() + f"/api/v1{path}"
         try:
-            resp = httpx.post(url, json=body, timeout=self._timeout())
+            resp = httpx.post(url, json=body, timeout=self._cfg.get("request_timeout", 30))
             resp.raise_for_status()
             return resp.json()
         except httpx.ConnectError:
             console.print(f"[red]Cannot connect to omni-daemon at {self._base_url()}[/red]")
-            console.print("[dim]Is omni-daemon running? (uvicorn src.main:app)[/dim]")
             return None
         except Exception as e:
             console.print(f"[red]Request failed:[/red] {e}")
             return None
 
     def _api_wiki_search(self, query: str, top_k: int = 5) -> List[Dict] | None:
-        data = self._post("/wiki/search", {"query": query, "top_k": top_k})
+        data = self._post("/wiki/search", {"query": query, "top_k": top_k, "score_threshold": 0.0})
         if data is None:
             return None
         return data.get("results", [])
+        
+    def _api_wiki_index(self) -> None:
+        """Call indexing asynchronously to avoid blocking the UI."""
+        def run_index():
+            self._post("/wiki/index", {})
+        threading.Thread(target=run_index, daemon=True).start()
 
     # ------------------------------------------------------------------
-    # Help text
+    # File resolving
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _print_help() -> None:
-        table = Table(title="📚 /wiki commands", show_header=True, header_style="bold blue")
-        table.add_column("Command", style="cyan", width=30)
-        table.add_column("Description", style="white")
+    def _find_file(self, keyword: str) -> Optional[Path]:
+        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
+        if not root_dir.exists():
+            return None
+            
+        keyword = str(keyword).lower().strip()
+        if keyword.endswith(".md"):
+            keyword = keyword[:-3]
 
-        table.add_row("/wiki status", "Wiki istatistiklerini göster")
-        table.add_row("/wiki search <sorgu>", "Sementik arama yap")
-        table.add_row("/wiki ingest <dosya>", "Dosyayı wiki'ye ingest et")
-        table.add_row("/wiki pin <sayfa>", "Sayfayı sabitle (context)")
-        table.add_row("/wiki open <sayfa>", "Sayfayı terminalde oku")
-        table.add_row("/wiki edit <sayfa>", "Sayfayı editörde aç")
-        table.add_row("/wiki link <s1> <s2>", "İki sayfa arasında bağ kur")
-        table.add_row("/wiki lint", "Wiki sağlık kontrolü")
-        table.add_row("/wiki context on|off", "Otomatik context enjeksiyonu")
+        for folder in ["wiki/concepts", "wiki/entities", "wiki/sources", "raw"]:
+            target = root_dir / folder / f"{keyword}.md"
+            if target.exists():
+                return target
+
+        all_files = list(root_dir.rglob("*.md"))
+        for p in all_files:
+            if keyword in p.stem.lower() or keyword in p.name.lower():
+                return p
+        return None
+
+    # ------------------------------------------------------------------
+    # Commands
+    # ------------------------------------------------------------------
+
+    def _cmd_lint(self, args: List[str], context: Dict[str, Any]) -> None:
+        console.print("[yellow]⚕️ Running Wiki health check via Omni-Daemon...[/yellow]")
+        data = self._post("/wiki/lint", {})
+        if data:
+            report = data.get("report") or data.get("message") or str(data)
+            console.print(Panel(Markdown(report), title="Wiki Lint Report"))
+        else:
+            console.print("[red]Daemon'dan lint raporu alınamadı veya bağlantı koptu.[/red]")
+
+    def _cmd_pin(self, args: List[str], context: Dict[str, Any]) -> None:
+        if not args:
+            console.print("[yellow]Usage: /pin <sayfa>[/yellow]")
+            return
+
+        cmd = " ".join(args).lower()
+        target = self._find_file(cmd)
+        
+        if not target:
+            console.print(f"[red]Bulunamadı: {cmd}[/red]")
+            return
+
+        if target not in self._pinned_pages:
+            self._pinned_pages.append(target)
+            console.print(f"📌 [green]Bağlam eklendi (Pinned):[/green] {target.name}")
+        else:
+            console.print(f"[dim]Zaten pinli: {target.name}[/dim]")
+
+    def _cmd_unpin(self, args: List[str], context: Dict[str, Any]) -> None:
+        if not self._pinned_pages:
+            console.print("[dim]Aktif pin yok.[/dim]")
+            return
+            
+        if not args:
+            self._pinned_pages.clear()
+            console.print("[yellow]Tüm pinler temizlendi.[/yellow]")
+            return
+            
+        cmd = " ".join(args).lower()
+        target = self._find_file(cmd)
+        if target in self._pinned_pages:
+            self._pinned_pages.remove(target)
+            console.print(f"📍 [yellow]Pin kaldırıldı:[/yellow] {target.name}")
+        else:
+            console.print(f"[red]Pinler arasında bulunamadı: {cmd}[/red]")
+
+    def _cmd_search(self, args: List[str], context: Dict[str, Any]) -> None:
+        if not args:
+            console.print("[yellow]Usage: /search <sorgu>[/yellow]")
+            return
+
+        query = " ".join(args)
+        top_k = self._cfg.get("context_top_k", 5)
+        results = self._api_wiki_search(query, top_k=top_k)
+        
+        if results is None:
+            return
+
+        self._last_search_results = results  # Store for /open
+
+        if not results:
+            console.print("[yellow]Arama sonucu bulunamadı.[/yellow]")
+            return
+
+        table = Table(title=f"🔍 Search: {query}", show_header=True, header_style="bold blue")
+        table.add_column("No", style="cyan", justify="right", width=4)
+        table.add_column("Score", style="green", width=6)
+        table.add_column("Dosya / Path", style="yellow")
+        table.add_column("Özet (Snippet)", style="white")
+
+        for i, item in enumerate(results, 1):
+            score = item.get("score", 0)
+            path = item.get("path", "")
+            snippet = item.get("content", "").strip().replace("\n", " ")[:80] + "..."
+            short_path = str(Path(path).name) if path else "unknown"
+            table.add_row(str(i), f"{score:.2f}", short_path, snippet)
 
         console.print(table)
+        console.print("[dim]İçeriği görmek / context'e almak için: /open <satır_no>[/dim]")
 
+    def _cmd_open(self, args: List[str], context: Dict[str, Any]) -> None:
+        if not args:
+            console.print("[yellow]Usage: /open <satır_no>[/yellow]")
+            return
+
+        try:
+            idx = int(args[0]) - 1
+            if idx < 0 or idx >= len(self._last_search_results):
+                raise ValueError
+        except ValueError:
+            console.print("[red]Geçersiz satır no.[/red]")
+            return
+
+        item = self._last_search_results[idx]
+        path = item.get("path", "Unknown")
+        content = item.get("content", "No content")
+        
+        console.print(Panel(Markdown(content), title=f"[bold blue]📄 {Path(path).name}[/bold blue]", expand=True))
+
+        if "history" in context:
+            context["history"].append({
+                "role": "system",
+                "text": f"Kullanıcı {Path(path).name} sayfasının/bölümünün içeriğini açtı:\n\n{content}",
+            })
+            console.print(f"[dim]✓ İçerik bağlama (context) eklendi.[/dim]")
+
+    def _cmd_show(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Show full content of a wiki page.
+
+        Accepts EITHER:
+          /wiki show <satır_no>   – row number from the last /wiki search table
+          /wiki show <sayfa_adı>  – keyword / page name (partial match OK)
+        """
+        if not args:
+            console.print("[yellow]Usage: /wiki show <satır_no|sayfa_adı>[/yellow]")
+            console.print("[dim]Örnek: /wiki show 2  veya  /wiki show raspberry[/dim]")
+            return
+
+        # ── Branch 1: numeric → use last search results ──────────────────
+        if len(args) == 1 and args[0].isdigit():
+            idx = int(args[0]) - 1
+            if not self._last_search_results:
+                console.print("[yellow]⚠️  Önce /wiki search <sorgu> ile arama yapın.[/yellow]")
+                return
+            if idx < 0 or idx >= len(self._last_search_results):
+                console.print(
+                    f"[red]Geçersiz satır no: {args[0]}  "
+                    f"(1-{len(self._last_search_results)} arası)[/red]"
+                )
+                return
+
+            item = self._last_search_results[idx]
+            path_str = item.get("path", "")
+            target = Path(path_str) if path_str else None
+
+            # Prefer reading from disk for full content (search result may be truncated)
+            content = None
+            if target and target.exists():
+                try:
+                    content = target.read_text(encoding="utf-8")
+                except Exception:
+                    pass
+            if content is None:
+                content = item.get("content", "")
+
+            if not content or not content.strip():
+                console.print(f"[yellow]⚠️  Dosya boş:[/yellow] [dim]{path_str or '(bilinmiyor)'}[/dim]")
+                return
+
+            title = target.name if target else (path_str or f"Sonuç {args[0]}")
+            console.print(Panel(Markdown(content), title=f"[bold blue]📄 {title}[/bold blue]", expand=True))
+            return
+
+        # ── Branch 2: keyword → find file by name ────────────────────────
+        keyword = " ".join(args).lower()
+        target = self._find_file(keyword)
+
+        if not target:
+            console.print(f"[red]Sayfa bulunamadı: {keyword}[/red]")
+            console.print("[dim]İpucu: Önce /wiki search ile arama yapıp satır numarasını kullanabilirsiniz.[/dim]")
+            return
+
+        try:
+            content = target.read_text(encoding="utf-8")
+        except Exception as e:
+            console.print(f"[red]Dosya okunamıyor {target}: {e}[/red]")
+            return
+
+        if not content.strip():
+            console.print(f"[yellow]⚠️  Dosya boş:[/yellow] [dim]{target}[/dim]")
+            return
+
+        console.print(Panel(Markdown(content), title=f"[bold blue]📄 {target.name}[/bold blue]", expand=True))
+
+
+
+
+    def _cmd_add(self, args: List[str], context: Dict[str, Any]) -> None:
+        if len(args) < 2:
+            console.print("[yellow]Usage: /add <dosya.md> \"Başlık\" [opsiyonel içerik][/yellow]")
+            return
+
+        filename = args[0]
+        if not filename.endswith(".md"):
+            filename += ".md"
+            
+        title = args[1]
+        
+        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
+        target_path = root_dir / "wiki" / "concepts" / filename
+        
+        if target_path.exists():
+            console.print(f"[red]Hata: {filename} zaten var. Düzenlemek için /edit kullanın.[/red]")
+            return
+
+        # Check if content was provided in the command line
+        content = "\\n".join(args[2:]).replace("\\\\n", "\\n") if len(args) > 2 else ""
+        
+        if not content:
+            console.print(f"[dim]Yeni sayfa: {filename} - Başlık: {title}[/dim]")
+            console.print("[dim]İçeriği girin (Boş satırda Ctrl-D ile bitirin):[/dim]")
+            content = chat_multiline(">>> ")
+            
+        full_content = f"# {title}\\n\\n{content}\\n"
+        
+        try:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_text(full_content, encoding="utf-8")
+            console.print(f"[green]✓ Sayfa oluşturuldu:[/green] {target_path}")
+            self._api_wiki_index() # Async re-index so Omni-Daemon sees it
+        except Exception as e:
+            console.print(f"[red]Yazılamadı: {e}[/red]")
+
+    def _cmd_edit(self, args: List[str], context: Dict[str, Any]) -> None:
+        if not args:
+            console.print("[yellow]Usage: /edit <sayfa>[/yellow]")
+            return
+
+        keyword = " ".join(args).lower()
+        target = self._find_file(keyword)
+
+        if not target:
+            console.print(f"[red]Bulunamadı: {keyword}[/red]")
+            return
+
+        try:
+            content = target.read_text(encoding="utf-8")
+        except Exception as e:
+            console.print(f"[red]Okunamıyor: {e}[/red]")
+            return
+
+        editor = os.environ.get("EDITOR") or self._cfg.get("default_editor", "vim")
+        console.print(f"[dim]Opening {target.name} with {editor}...[/dim]")
+        try:
+            subprocess.call([editor, str(target)])
+            self._api_wiki_index() # Re-index after edit
+        except Exception as e:
+            console.print(f"[red]Editör açılamadı: {e}[/red]")
+
+    def _cmd_delete(self, args: List[str], context: Dict[str, Any]) -> None:
+        if not args:
+            console.print("[yellow]Usage: /delete <sayfa>[/yellow]")
+            return
+
+        keyword = " ".join(args).lower()
+        target = self._find_file(keyword)
+
+        if not target:
+            console.print(f"[red]Bulunamadı: {keyword}[/red]")
+            return
+
+        if Confirm.ask(f"[bold red]Uyarı:[/bold red] '{target.name}' kalıcı olarak silinecek. Onaylıyor musunuz?", default=False):
+            try:
+                target.unlink()
+                console.print(f"[green]✓ Silindi:[/green] {target.name}")
+                if target in self._pinned_pages:
+                    self._pinned_pages.remove(target)
+                self._api_wiki_index()
+            except Exception as e:
+                console.print(f"[red]Silinemedi: {e}[/red]")
+        else:
+            console.print("[dim]İptal edildi.[/dim]")
+
+    def _cmd_list(self, args: List[str], context: Dict[str, Any]) -> None:
+        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
+        if not root_dir.exists():
+            console.print(f"[red]Wiki root bulunamadı: {root_dir}[/red]")
+            return
+
+        all_files = list(root_dir.rglob("*.md"))
+        
+        # Sadece wiki altındaki veya anlamlı .md dosyaları
+        valid_files = [f for f in all_files if ".git" not in f.parts and "venv" not in f.parts]
+        
+        if not valid_files:
+            console.print("[dim]Wiki'de bulunamadı.[/dim]")
+            return
+            
+        table = Table(title=f"📚 Wiki Dizini ({len(valid_files)} dosya)", show_header=True, header_style="bold blue")
+        table.add_column("Klasör", style="cyan")
+        table.add_column("Dosya", style="green")
+        
+        # Sort and display
+        for f in sorted(valid_files):
+            try:
+                rel = f.relative_to(root_dir)
+                table.add_row(str(rel.parent), f.name)
+            except ValueError:
+                pass
+                
+        console.print(table)
+
+    def _cmd_help(self, args: List[str], context: Dict[str, Any]) -> None:
+        table = Table(title="📚 Wiki Komutları (Omni-Context V2)", show_header=True, header_style="bold blue")
+        table.add_column("Komut", style="cyan")
+        table.add_column("Kullanım", style="green")
+        table.add_column("Açıklama", style="white")
+
+        table.add_row("/wiki pin", "/wiki pin <sayfa>", "Sayfayı aktif bağlam (context) olarak işaretler")
+        table.add_row("/wiki unpin", "/wiki unpin [sayfa]", "Aktif bağlamı kaldırır")
+        table.add_row("/wiki search", "/wiki search <sorgu>", "Metin veya semantik wiki araması (Rich tablo döner)")
+        table.add_row("/wiki open", "/wiki open <satır_no>", "search tablosundaki No'ya göre okur ve bağlama ekler")
+        table.add_row("/wiki show", "/wiki show <satır_no|sayfa>", "Tam içeriği gösterir (arama no veya dosya adı)")
+        table.add_row("/wiki add", "/wiki add <sayfa> <başlık>", "Yeni sayfa oluşturur (Rich prompt ile içerik ister)")
+        table.add_row("/wiki edit", "/wiki edit <sayfa>", "Sayfayı sistem editöründe ($EDITOR) açar")
+        table.add_row("/wiki delete", "/wiki delete <sayfa>", "Sayfayı kalıcı olarak siler (Onay ister)")
+        table.add_row("/wiki list", "/wiki list", "Wiki dizinindeki tüm sayfaları listeler")
+        table.add_row("/wiki help", "/wiki help", "Bu yardım menüsünü gösterir")
+
+        console.print(table)

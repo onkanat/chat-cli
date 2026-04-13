@@ -463,6 +463,73 @@ commands/ (orchestration)
         └─→ ui/ (rendering)
 ```
 
+### Generation Route System
+
+The app routes model requests through two distinct settings that interact with each other. Understanding both is critical to avoid unexpected behavior.
+
+#### Setting #7 — `generation_route` (config: `"generation_route"`)
+
+Controls the **global** generation backend. Three values:
+
+| Value | Behavior |
+|-------|----------|
+| `omni` | Always sends requests to Omni-Daemon (`/api/v1/stream`). Never falls back. |
+| `auto` | Tries Omni-Daemon first; falls back to direct Ollama on error or RAG failure. |
+| `direct` | Bypasses Omni-Daemon entirely and calls Ollama directly. |
+
+Changed via `/settings` → **Option 7 → Change generation route**.
+
+#### Setting #13 — `chat_interface_prefer_direct` (config: `"chat_interface_prefer_direct"`)
+
+An **override for chat (list-based history) requests only**. When `true`, forces direct Ollama even if `generation_route` is `omni` or `auto` — but **only when the input is a conversation history list** (not a single string prompt).
+
+> [!IMPORTANT]
+> Setting #13 has **no effect** when `generation_route = "omni"`. The code explicitly checks `if route_mode == "omni": return False` before evaluating this flag. It only activates on `auto` mode.
+
+#### Routing Decision Logic (from `ui/console.py`)
+
+```
+_should_prefer_direct_for_chat(prompt, config, route_mode):
+  if route_mode == "omni"  →  False  (setting #13 is ignored)
+  if prompt is not a list  →  False  (only applies to chat history)
+  return config["chat_interface_prefer_direct"]   ← setting #13
+```
+
+Full routing flow in `get_model_reply_stream()`:
+
+```
+1. if _should_prefer_direct_for_chat(...) → _stream_direct_ollama()   # setting #13 wins
+2. elif route_mode == "direct"            → _stream_direct_ollama()   # setting #7
+3. else (omni or auto)                   → POST to Omni-Daemon
+     └─ on error / RAG fail (auto only)  → _stream_direct_ollama()   # fallback
+```
+
+#### UI Status Label Mapping
+
+The `(direct-chat)` label shown next to the model name in chat indicates setting #13 is active:
+
+| Label shown | Meaning |
+|-------------|---------|
+| `direct` | `generation_route = "direct"` |
+| `direct-chat` | `generation_route = auto` AND `chat_interface_prefer_direct = true` |
+| `omni` | `generation_route = "omni"` |
+| `auto-omni` | `generation_route = "auto"` AND `chat_interface_prefer_direct = false` |
+
+#### Common Configurations
+
+```jsonc
+// Always use Omni-Daemon (RAG-augmented)
+{ "generation_route": "omni" }
+
+// Chat goes direct, single prompts go via Omni
+{ "generation_route": "auto", "chat_interface_prefer_direct": true }
+
+// Always bypass Omni-Daemon
+{ "generation_route": "direct" }
+```
+
+---
+
 ### Key Design Decisions
 
 1. **Modular architecture**: Clear separation of concerns with dedicated directories
@@ -501,9 +568,17 @@ commands/ (orchestration)
 
 ### Testing
 
-- 7 test files covering core functionality
+- 7 test files covering core functionality (including `tests/test_tool_wiki.py` and `tests/test_tool_chat.py`)
 - Test coverage maintained through refactoring
 - Integration tests via pytest fixtures
+
+#### Test Writing Guidelines & Gotchas
+When writing tests for `chat-cli`, especially for REPL UI components, heed the following:
+1. **PyTest stdin capture issues**: PyTest blocks standard input. If tested code executes interactive functions like `input()`, it will immediately throw an `OSError: pytest reading from stdin while output is captured`.
+2. **Mocking REPL Loops (`run_chat`)**:
+   - `run_chat` uses `input_handler.enhanced_input_multiline` rather than `get_multiline_input`. When simulating user input in tests, patch `repl.loop.input_handler.enhanced_input_multiline`, NOT standard `input()` or `get_multiline_input`.
+   - Before `run_chat` enters its main interaction loop, it attempts to verify the model via UI `ui_mod.select_model_menu`. This function prompts the user via `input()`. This call **must** be mocked (e.g., `@patch("repl.loop.ui_mod.select_model_menu")`) to avoid triggering the PyTest `OSError`.
+3. **Function Signatures**: Be aware that `run_chat` accepts specific parameters: `(history_file, base_url, stream, max_context_tokens, max_output_chars)`. Call overrides during testing should use valid positional or defined structural values (e.g., `run_chat("dummy_history.json", None, False, 4000, 2000)`).
 
 ### Future Improvements
 

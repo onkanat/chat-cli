@@ -23,7 +23,7 @@ python main.py --help
 - **Interactive REPL** with 20+ slash commands
 - **Multi-line input** with readline support
 - **Shell integration** with `!command` syntax
-- **Plugin system** for extensibility (includes native `/file read` and `/file write` capabilities)
+- **Plugin system** for extensibility (includes native `/file`, `persona` selection, and direct **/wiki** slash subcommands like `/wiki pin`, `/wiki search` via Omni-Daemon)
 - **Analytics & monitoring** built-in
 - **Session management** for conversation history
 - **Model profiles** with optimized context handling

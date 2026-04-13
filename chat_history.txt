@@ -1,20 +1,20 @@
-/setings
+plugin ve çalıştırabileceğin komutları listele /help komutunu çalıştır ve analiz et.
+/quit
+/setting
 /settings
-yapay zeka nasıl çalışır
-/models
-/model qweb3.5:2b
-ollama nedir ?
+plugin ve çalıştırabileceğin komutları listele /help komutunu çalıştır ve analiz et.
 /quit
-/help
+plugin ve çalıştırabileceğin komutları listele /help komutunu çalıştır ve analiz et.
+/settings
+plugin ve çalıştırabileceğin komutları listele /help komutunu çalıştır ve analiz et.
+/quit
+plugin ve çalıştırabileceğin komutları listele /help komutunu çalıştır ve analiz et.
+/wi search transformer
+/wiki search transformer
 /wiki
-/wiki search chat-cli
-/wiki edit chat-cli.md
-/wiki open chat-cli.md
-/wiki lint
+/wiki search transformer
+/wiki open 2
+/wiki show 2
+/wiki search transformer
+/wiki show 2
 /quit
-/wiki
-/wiki lint
-/quit
-/wiki lint
-/quit
-/wiki lint

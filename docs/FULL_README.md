@@ -47,6 +47,17 @@ Modern, modüler ve terminal odaklı bir Ollama sohbet arayüzü. Çok satırlı
 - `/plugin-load`, `/plugin-unload`, `/plugin-info`, `/plugins`, `/plugins-available` komutları hazır.
 - Bazı gelişmiş özellikler (ör. persona yönetimi) yalnızca ilgili plugin yüklüyse aktiftir.
 
+#### Wiki Plugin (Omni-Context V2)
+
+- Omni-Daemon ile entegre çalışarak yerel Wiki (RAG) sistemini doğrudan yönetmeye yarar.
+- Arayüzü root (top-level) slash komutları şeklinde genişletir:
+  - `/wiki pin <sayfa>`, `/wiki unpin` : Bir sayfayı sohbet bağlamına sabitler veya kaldırır.
+  - `/wiki search <sorgu>` : Wiki içerisinde semantik arama yapar, numaralandırılmış tablo döner (Stateful).
+  - `/wiki open <satır_no>` : `/wiki search` sonuçlarındaki bir dosyayı doğrudan context'e dahil eder.
+  - `/wiki add <dosya> <başlık>` : Multi-line modunda Rich-Prompt editörü açarak yeni bir wiki sayfası oluşturur.
+  - `/wiki show`, `/wiki edit`, `/wiki delete`, `/wiki list` : Sayfa okuma, sistem editöründe açma, silme ve listeleme destekleri sunar.
+  - `/wiki help` : Tüm Wiki komut setinin yardım tablosunu açar.
+
 #### Persona Selector (system_prompt eklentisi)
 
 - `plugins/persona_selector.py` sistemi varsayılan olarak yüklenir ve `plugins/system_prompts/personas.json` içindeki şablonları okur.

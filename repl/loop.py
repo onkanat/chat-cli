@@ -644,11 +644,22 @@ def run_chat(
                         system_message = config.get("system_message", "")
                         if persona_plugin and chat_context.get("persona_prompt"):
                             system_message = chat_context["persona_prompt"]
-                        # Inject agent prompt
-                        builtin_cmds = ["/list", "/models"]
-                        plugin_cmds = [f"/{cmd}" for cmd in plugin_manager.get_all_commands().keys()]
-                        all_cmds_str = ", ".join(builtin_cmds + plugin_cmds)
-                        dynamic_agent_prompt = AGENT_PROMPT.replace("{AVAILABLE_COMMANDS}", all_cmds_str)
+                        # Inject agent prompt with descriptions
+                        builtin_cmds = {
+                            "/list": "List all loaded plugins and their commands",
+                            "/models": "List available Ollama models",
+                            "/help": "Show help for commands",
+                            "/plugins": "Manage (load/unload/list) plugins"
+                        }
+                        plugin_cmds = plugin_manager.get_all_commands()
+                        
+                        # Combine and format
+                        all_cmds = {**builtin_cmds}
+                        for cmd, desc in plugin_cmds.items():
+                            all_cmds[f"/{cmd}"] = desc
+                            
+                        cmds_help = "\n".join([f"- {cmd}: {desc}" for cmd, desc in all_cmds.items()])
+                        dynamic_agent_prompt = AGENT_PROMPT.replace("{AVAILABLE_COMMANDS}", cmds_help)
                         system_message += "\n" + dynamic_agent_prompt
                         for chunk in ui_mod.get_model_reply_stream(
                             history,
@@ -692,10 +703,20 @@ def run_chat(
                     system_message = config.get("system_message", "")
                     if persona_plugin and chat_context.get("persona_prompt"):
                         system_message = chat_context["persona_prompt"]
-                    builtin_cmds = ["/list", "/models"]
-                    plugin_cmds = [f"/{cmd}" for cmd in plugin_manager.get_all_commands().keys()]
-                    all_cmds_str = ", ".join(builtin_cmds + plugin_cmds)
-                    dynamic_agent_prompt = AGENT_PROMPT.replace("{AVAILABLE_COMMANDS}", all_cmds_str)
+                    builtin_cmds = {
+                        "/list": "List all loaded plugins and their commands",
+                        "/models": "List available Ollama models",
+                        "/help": "Show help for commands",
+                        "/plugins": "Manage (load/unload/list) plugins"
+                    }
+                    plugin_cmds = plugin_manager.get_all_commands()
+                    
+                    all_cmds = {**builtin_cmds}
+                    for cmd, desc in plugin_cmds.items():
+                        all_cmds[f"/{cmd}"] = desc
+                        
+                    cmds_help = "\n".join([f"- {cmd}: {desc}" for cmd, desc in all_cmds.items()])
+                    dynamic_agent_prompt = AGENT_PROMPT.replace("{AVAILABLE_COMMANDS}", cmds_help)
                     system_message += "\n" + dynamic_agent_prompt
                     reply = ui_mod.get_model_reply_sync(
                         history,

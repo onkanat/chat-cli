@@ -347,6 +347,10 @@ class ExamplePlugin(PluginBase):
     def get_all_commands(self) -> Dict[str, str]:
         """Get all available plugin commands with descriptions."""
         commands = {}
-        for cmd_name, (plugin, _) in self.command_registry.items():
-            commands[cmd_name] = f"From {plugin.name} plugin"
+        for cmd_name, (plugin, cmd_func) in self.command_registry.items():
+            # Extract first line of docstring as description
+            desc = "No description provided"
+            if cmd_func.__doc__:
+                desc = cmd_func.__doc__.strip().split("\n")[0]
+            commands[cmd_name] = desc
         return commands

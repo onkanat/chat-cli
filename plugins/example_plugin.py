@@ -43,31 +43,64 @@ class ExamplePlugin(PluginBase):
         console.print(f"[green]Hello, {name}! 👋[/green]")
     
     def calc_command(self, args: List[str], context: Dict[str, Any]) -> None:
-        """Simple calculator."""
-        if len(args) != 3:
-            console.print("[yellow]Usage: /calc <num1> <op> <num2>[/yellow]")
-            console.print("[dim]Example: /calc 5 + 3[/dim]")
+        """Evaluates math expressions safely. Supports +, -, *, /, **, %, sqrt, sin, cos, tan, log, exp."""
+        if not args:
+            console.print("[yellow]Usage: /calc <expression>[/yellow]")
+            console.print("[dim]Example: /calc (12 + 5) * 2[/dim]")
             return
+
+        expression = " ".join(args)
         
-        try:
-            num1, op, num2 = float(args[0]), args[1], float(args[2])
-            if op == "+":
-                result = num1 + num2
-            elif op == "-":
-                result = num1 - num2
-            elif op == "*":
-                result = num1 * num2
-            elif op == "/":
-                result = num1 / num2
+        # Safe evaluation using AST
+        import ast
+        import math
+        import operator
+
+        # Supported operators
+        operators = {
+            ast.Add: operator.add, ast.Sub: operator.sub, 
+            ast.Mult: operator.mul, ast.Div: operator.truediv,
+            ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
+            ast.Pow: operator.pow, ast.USub: operator.neg, 
+            ast.UAdd: operator.pos
+        }
+
+        # Supported functions
+        functions = {
+            "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos, 
+            "tan": math.tan, "log": math.log, "log10": math.log10,
+            "exp": math.exp, "abs": abs, "ceil": math.ceil, "floor": math.floor
+        }
+
+        def eval_node(node):
+            if isinstance(node, ast.Constant): # Python 3.8+ handles Num, Str, etc.
+                if isinstance(node.value, (int, float)):
+                    return node.value
+                raise ValueError(f"Constant type {type(node.value)} not supported")
+            elif isinstance(node, ast.BinOp):
+                return operators[type(node.op)](eval_node(node.left), eval_node(node.right))
+            elif isinstance(node, ast.UnaryOp):
+                return operators[type(node.op)](eval_node(node.operand))
+            elif isinstance(node, ast.Call):
+                func_name = node.func.id
+                if func_name in functions:
+                    args = [eval_node(arg) for arg in node.args]
+                    return functions[func_name](*args)
+                raise ValueError(f"Function {func_name} is not supported")
+            elif isinstance(node, ast.Name):
+                if node.id == "pi": return math.pi
+                if node.id == "e": return math.e
+                raise ValueError(f"Variable {node.id} is not supported")
             else:
-                console.print(f"[red]Unknown operator: {op}[/red]")
-                return
-            
-            console.print(f"[green]Result: {num1} {op} {num2} = {result}[/green]")
-        except ValueError:
-            console.print("[red]Invalid numbers provided[/red]")
-        except ZeroDivisionError:
-            console.print("[red]Cannot divide by zero[/red]")
+                raise TypeError(f"Unsupported node type: {type(node).__name__}")
+
+        try:
+            tree = ast.parse(expression, mode='eval')
+            result = eval_node(tree.body)
+            console.print(f"[green]Result:[/green] [white]{expression} = {result}[/white]")
+        except Exception as e:
+            console.print(f"[red]Error parsing expression:[/red] {e}")
+            console.print("[dim]Note: Variable assignment (set/get) and complex matrices are not supported.[/dim]")
     
     def time_command(self, args: List[str], context: Dict[str, Any]) -> None:
         """Show current time."""

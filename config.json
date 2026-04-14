@@ -16,8 +16,8 @@
     }
   },
   "persona": {
-    "current_persona": "python_yapay_zeka",
-    "last_updated": "2026-04-13T17:58:47.426805+00:00"
+    "current_persona": "assistant",
+    "last_updated": "2026-04-14T04:31:59.467960+00:00"
   },
   "generation_route": "direct",
   "fallback_to_direct_on_error": true,

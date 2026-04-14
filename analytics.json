@@ -675,6 +675,30 @@
       "messages": 0,
       "tokens": 0,
       "commands": []
+    },
+    {
+      "id": "20260414_064058",
+      "start_time": "2026-04-14T06:40:58.520815",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_072932",
+      "start_time": "2026-04-14T07:29:32.497460",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_073159",
+      "start_time": "2026-04-14T07:31:59.466958",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
     }
   ],
   "total_messages": 0,
@@ -682,7 +706,7 @@
   "total_response_time": 0.0,
   "models_used": {},
   "commands_used": {
-    "help": 52,
+    "help": 53,
     "list": 3,
     "model": 10,
     "shell": 20,
@@ -699,7 +723,7 @@
     "plugin-load": 3,
     "plugin-info": 2,
     "/persona": 1,
-    "persona": 27,
+    "persona": 29,
     "new_session": 43,
     "load_history": 1,
     "exit": 13,
@@ -709,8 +733,8 @@
     "suggest": 7,
     "pull": 16,
     "models": 10,
-    "quit": 55,
-    "calc": 5,
+    "quit": 57,
+    "calc": 14,
     "file": 14,
     "personas": 4,
     "setting": 2,
@@ -724,7 +748,8 @@
     "omni": 1,
     "setings": 2,
     "": 1,
-    "open": 1
+    "open": 1,
+    "time": 1
   },
   "daily_usage": {},
   "created_at": "2025-11-24T21:01:44.997770"

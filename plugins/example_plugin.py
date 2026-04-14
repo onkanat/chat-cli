@@ -88,8 +88,10 @@ class ExamplePlugin(PluginBase):
                     return functions[func_name](*args)
                 raise ValueError(f"Function {func_name} is not supported")
             elif isinstance(node, ast.Name):
-                if node.id == "pi": return math.pi
-                if node.id == "e": return math.e
+                if node.id == "pi":
+                    return math.pi
+                if node.id == "e":
+                    return math.e
                 raise ValueError(f"Variable {node.id} is not supported")
             else:
                 raise TypeError(f"Unsupported node type: {type(node).__name__}")

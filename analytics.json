@@ -699,6 +699,88 @@
       "messages": 0,
       "tokens": 0,
       "commands": []
+    },
+    {
+      "id": "20260414_112521",
+      "start_time": "2026-04-14T11:25:21.348610",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_114300",
+      "start_time": "2026-04-14T11:43:00.467897",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_114347",
+      "start_time": "2026-04-14T11:43:47.663270",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": [],
+      "end_time": "2026-04-14T12:04:24.412582",
+      "duration": 1236.749312
+    },
+    {
+      "id": "20260414_120800",
+      "start_time": "2026-04-14T12:08:00.334267",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_121649",
+      "start_time": "2026-04-14T12:16:49.023321",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_121821",
+      "start_time": "2026-04-14T12:18:21.304776",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_123305",
+      "start_time": "2026-04-14T12:33:05.959756",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_125720",
+      "start_time": "2026-04-14T12:57:20.820019",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_144916",
+      "start_time": "2026-04-14T14:49:16.040157",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260414_151919",
+      "start_time": "2026-04-14T15:19:19.205667",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
     }
   ],
   "total_messages": 0,
@@ -706,7 +788,7 @@
   "total_response_time": 0.0,
   "models_used": {},
   "commands_used": {
-    "help": 53,
+    "help": 57,
     "list": 3,
     "model": 10,
     "shell": 20,
@@ -724,8 +806,8 @@
     "plugin-info": 2,
     "/persona": 1,
     "persona": 29,
-    "new_session": 43,
-    "load_history": 1,
+    "new_session": 47,
+    "load_history": 2,
     "exit": 13,
     "session": 3,
     "save": 5,
@@ -733,7 +815,7 @@
     "suggest": 7,
     "pull": 16,
     "models": 10,
-    "quit": 57,
+    "quit": 66,
     "calc": 14,
     "file": 14,
     "personas": 4,
@@ -744,12 +826,13 @@
     "rm": 1,
     "read_file": 1,
     "new_sesion": 1,
-    "wiki": 84,
+    "wiki": 86,
     "omni": 1,
     "setings": 2,
     "": 1,
     "open": 1,
-    "time": 1
+    "time": 1,
+    "distill": 12
   },
   "daily_usage": {},
   "created_at": "2025-11-24T21:01:44.997770"

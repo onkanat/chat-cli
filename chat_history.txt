@@ -1,20 +1,20 @@
-/wiki search transformer
-/wiki show 2
 /quit
-/persona
+/distill
 /help
-/persona set assistant
-Bizim bir çok aracımız  var bunlardan biri '/wiki' bunun dışında kullanılabilecek araçlarımız neler ?
-/time
-/calc 45 * 4
-chat-cli plugin lerinden biri /calc hangi işlemleri yapabiliyor araştır.
-/calc set(a, 8); set(b, 3); a**b + sqrt(b)
+/load_history
+/new_session list
+/new_session switch 20260402_192232_462c4e
+/distill
 /quit
-/calc set(a, 8); set(b, 3); a**b + sqrt(b)
-/calc sqrt(144)
-/calc 45 * 4
+/distill
 /quit
-/calc 2+4
-/calc sqrt(144) + 2**3
-/calc sqrt(144)
-/calc 2**3
+/distill
+/quit
+/help
+/new_session list
+/new_session create deneme
+555 devrelerinde çıkışta oluşan dalga formu nasıl ayarlanır.
+R-2R DAC çeviriçilerin kullanım alanları nelerdir.
+/distill
+/quit
+/distill

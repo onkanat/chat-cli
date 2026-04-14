@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "text": "What is the difference between RAG and Fine-tuning?"
+  },
+  {
+    "role": "assistant",
+    "text": "RAG (Retrieval-Augmented Generation) uses external knowledge at query time without changing model weights. Fine-tuning actually updates the model weights based on a specific dataset. RAG is better for dynamic data, fine-tuning is better for style and format."
+  }
+]

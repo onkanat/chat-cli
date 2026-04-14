@@ -3,7 +3,8 @@
     "example_plugin",
     "persona_selector",
     "file_plugin",
-    "wiki_plugin"
+    "wiki_plugin",
+    "distill_plugin"
   ],
   "plugin_settings": {
     "persona_selector": {

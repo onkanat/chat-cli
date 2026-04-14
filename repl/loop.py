@@ -637,6 +637,11 @@ def run_chat(
                     progress = ui_mod.create_progress_tracker()
                     task = progress.add_task("Generating response...", total=100)
 
+                    import time
+                    last_update_time = 0
+                    update_frequency = 0.1  # Update every 100ms max or every 15 chunks
+                    chunk_counter = 0
+
                     panel = Panel(Markdown(buffer), title="Assistant (streaming)", expand=True)
                     renderable = Group(panel, progress)
 
@@ -671,9 +676,24 @@ def run_chat(
                             parts.append(chunk)
                             buffer = "".join(parts)
                             char_count += len(chunk)
-                            progress.update(task, advance=min(len(chunk) * 2, 10))
-                            panel = Panel(Markdown(buffer), title="Assistant (streaming)", expand=True)
-                            live.update(Group(panel, progress))
+                            chunk_counter += 1
+                            
+                            progress.update(task, advance=min(len(chunk) * 2, 8))
+                            
+                            # Throttled update
+                            current_time = time.time()
+                            if chunk_counter >= 15 or (current_time - last_update_time) >= update_frequency:
+                                try:
+                                    # Create Markdown once for current buffer
+                                    md_content = Markdown(buffer)
+                                    panel = Panel(md_content, title="Assistant (streaming)", expand=True)
+                                    live.update(Group(panel, progress))
+                                    last_update_time = current_time
+                                    chunk_counter = 0
+                                except Exception:
+                                    # Fallback to plain text if Markdown parsing fails (e.g. half-table)
+                                    # This avoids terminal artifacts/ghosting
+                                    pass
 
                             # Early exit if tag completed (naive check to speed up macro)
                             if "</call_cmd>" in buffer:

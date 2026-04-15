@@ -780,6 +780,56 @@
       "model": "nemotron-cascade-2:30b",
       "messages": 0,
       "tokens": 0,
+      "commands": [],
+      "end_time": "2026-04-15T06:56:49.584828",
+      "duration": 56250.379161
+    },
+    {
+      "id": "20260415_065714",
+      "start_time": "2026-04-15T06:57:14.685671",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260415_143114",
+      "start_time": "2026-04-15T14:31:14.636336",
+      "model": "gemma4:31b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260415_144706",
+      "start_time": "2026-04-15T14:47:06.592820",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260415_172433",
+      "start_time": "2026-04-15T17:24:33.388298",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260415_173059",
+      "start_time": "2026-04-15T17:30:59.762054",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260415_174700",
+      "start_time": "2026-04-15T17:47:00.495068",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
       "commands": []
     }
   ],
@@ -788,13 +838,13 @@
   "total_response_time": 0.0,
   "models_used": {},
   "commands_used": {
-    "help": 57,
+    "help": 58,
     "list": 3,
-    "model": 10,
+    "model": 15,
     "shell": 20,
     "settings": 36,
     "search": 6,
-    "clear": 17,
+    "clear": 19,
     "export": 7,
     "stats": 11,
     "analytics": 4,
@@ -813,26 +863,26 @@
     "save": 5,
     "cls": 1,
     "suggest": 7,
-    "pull": 16,
-    "models": 10,
-    "quit": 66,
+    "pull": 20,
+    "models": 11,
+    "quit": 71,
     "calc": 14,
     "file": 14,
     "personas": 4,
     "setting": 2,
-    "load": 3,
+    "load": 5,
     "ollama": 1,
     "run": 1,
-    "rm": 1,
+    "rm": 5,
     "read_file": 1,
     "new_sesion": 1,
-    "wiki": 86,
+    "wiki": 97,
     "omni": 1,
     "setings": 2,
     "": 1,
     "open": 1,
     "time": 1,
-    "distill": 12
+    "distill": 29
   },
   "daily_usage": {},
   "created_at": "2025-11-24T21:01:44.997770"

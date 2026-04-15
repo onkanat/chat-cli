@@ -20,6 +20,7 @@ import json
 import httpx
 import os
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Callable, Any, Optional
 
@@ -79,6 +80,7 @@ class WikiPlugin(PluginBase):
     def get_commands(self) -> Dict[str, Callable]:
         return {
             "wiki": self._cmd_wiki,
+            "ingest": self._cmd_ingest_shortcut,
         }
 
     def _cmd_wiki(self, args: List[str], context: Dict[str, Any]) -> None:
@@ -99,6 +101,8 @@ class WikiPlugin(PluginBase):
             "edit": self._cmd_edit,
             "delete": self._cmd_delete,
             "list": self._cmd_list,
+            "ingest": self._cmd_ingest,
+            "ingest-session": self._cmd_ingest_session,
             "lint": self._cmd_lint,
             "help": self._cmd_help,
         }
@@ -177,7 +181,7 @@ class WikiPlugin(PluginBase):
     def _base_url(self) -> str:
         return self._cfg.get("omni_daemon_url", _DEFAULTS["omni_daemon_url"]).rstrip("/")
 
-    def _post(self, path: str, body: dict) -> Dict | None:
+    def _post(self, path: str, body: dict, silent_timeout: bool = False) -> Dict | None:
         url = self._base_url() + f"/api/v1{path}"
         try:
             resp = httpx.post(url, json=body, timeout=self._cfg.get("request_timeout", 30))
@@ -185,6 +189,14 @@ class WikiPlugin(PluginBase):
             return resp.json()
         except httpx.ConnectError:
             console.print(f"[red]Cannot connect to omni-daemon at {self._base_url()}[/red]")
+            return None
+        except httpx.TimeoutException:
+            if not silent_timeout:
+                console.print(
+                    f"[yellow]⏱ omni-daemon {path} isteği zaman aşımına uğradı "
+                    f"(timeout={self._cfg.get('request_timeout', 30)}s). "
+                    "Daemon arka planda çalışmaya devam ediyor olabilir.[/yellow]"
+                )
             return None
         except Exception as e:
             console.print(f"[red]Request failed:[/red] {e}")
@@ -197,9 +209,12 @@ class WikiPlugin(PluginBase):
         return data.get("results", [])
         
     def _api_wiki_index(self) -> None:
-        """Call indexing asynchronously to avoid blocking the UI."""
-        def run_index():
-            self._post("/wiki/index", {})
+        """Call indexing asynchronously; log errors instead of silently swallowing them."""
+        def run_index() -> None:
+            try:
+                self._post("/wiki/index", {}, silent_timeout=True)
+            except Exception as e:
+                console.print(f"[dim yellow]⚠️  Wiki index arka plan hatası: {e}[/dim yellow]")
         threading.Thread(target=run_index, daemon=True).start()
 
     # ------------------------------------------------------------------
@@ -229,6 +244,90 @@ class WikiPlugin(PluginBase):
     # ------------------------------------------------------------------
     # Commands
     # ------------------------------------------------------------------
+
+    def _cmd_ingest_shortcut(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Top-level /ingest <text> shortcut."""
+        self._cmd_ingest(args, context)
+
+    def _cmd_ingest(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Saves raw text as a memo and triggers LLM-based ingestion.
+
+        Dosyayı anında kaydeder ve daemon'a olan yavaş LLM çağrısını
+        arka planda (daemon thread) yürütür; böylece konsol bloke olmaz
+        ve timeout mesajları ana prompt'u kirletmez.
+        """
+        if not args:
+            console.print("[yellow]Usage: /ingest <text>[/yellow]")
+            return
+
+        text = " ".join(args)
+        now = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"ingest_{now}.md"
+
+        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
+        raw_dir = root_dir / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+
+        target_path = raw_dir / filename
+
+        # ── 1. Dosyayı hemen kaydet (senkron, hızlı) ─────────────────────
+        try:
+            full_content = f"""---
+tag: ingest
+date: {datetime.now().isoformat()}
+---
+# Ingested Fact
+
+{text}
+"""
+            target_path.write_text(full_content, encoding="utf-8")
+            console.print(f"[green]✓ Fact saved to:[/green] {target_path.name}")
+        except Exception as e:
+            console.print(f"[red]Ingest failed (dosya yazılamadı):[/red] {e}")
+            return
+
+        # ── 2. Daemon LLM çağrısını arka planda başlat (asenkron) ────────
+        console.print(
+            "[yellow]⚙️  Omni-Daemon arka planda işliyor…[/yellow] "
+            "[dim](sonuç birkaç saniye içinde görünecek)[/dim]"
+        )
+
+        def _run_ingest_bg(path: Path) -> None:
+            # Uzun LLM işlemi; timeout'u ingest için yüksek tut
+            timeout = max(self._cfg.get("request_timeout", 30), 120)
+            url = self._base_url() + "/api/v1/wiki/ingest"
+            try:
+                resp = httpx.post(url, json={"file_path": str(path)}, timeout=timeout)
+                resp.raise_for_status()
+                res = resp.json()
+            except httpx.ConnectError:
+                console.print(f"[red]\n⚡ omni-daemon bağlantısı kurulamadı: {self._base_url()}[/red]")
+                return
+            except httpx.TimeoutException:
+                console.print(
+                    f"[yellow]\n⏱ omni-daemon ingest isteği zaman aşımına uğradı "
+                    f"(>{timeout}s). Daemon işlemi tamamlamış olabilir; "
+                    "/wiki search ile kontrol edin.[/yellow]"
+                )
+                return
+            except Exception as e:
+                console.print(f"[red]\nIngest arka plan hatası:[/red] {e}")
+                return
+
+            if res and res.get("ok"):
+                console.print(
+                    f"\n[bold green]✓ Ingestion tamamlandı![/bold green] "
+                    f"Özet: {res.get('reason', 'Wiki güncellendi.')}"
+                )
+                if res.get("wiki_page"):
+                    console.print(f"[dim]  → Sayfa: {res.get('wiki_page')}[/dim]")
+                self._api_wiki_index()  # Async re-index
+            else:
+                err = (res.get("reason") if res else "Daemon yanıt vermedi")
+                console.print(f"[red]\nWiki sentezi başarısız:[/red] {err}")
+                console.print("[dim]Ham dosya kaydedildi; LLM sentezi yapılamadı.[/dim]")
+
+        threading.Thread(target=_run_ingest_bg, args=(target_path,), daemon=True).start()
 
     def _cmd_lint(self, args: List[str], context: Dict[str, Any]) -> None:
         console.print("[yellow]⚕️ Running Wiki health check via Omni-Daemon...[/yellow]")
@@ -333,7 +432,7 @@ class WikiPlugin(PluginBase):
                 "role": "system",
                 "text": f"Kullanıcı {Path(path).name} sayfasının/bölümünün içeriğini açtı:\n\n{content}",
             })
-            console.print(f"[dim]✓ İçerik bağlama (context) eklendi.[/dim]")
+            console.print("[dim]✓ İçerik bağlama (context) eklendi.[/dim]")
 
     def _cmd_show(self, args: List[str], context: Dict[str, Any]) -> None:
         """Show full content of a wiki page.
@@ -455,9 +554,11 @@ class WikiPlugin(PluginBase):
             return
 
         try:
-            content = target.read_text(encoding="utf-8")
+            if not target.exists():
+                console.print(f"[red]Dosya silinmiş veya erişilemiyor: {target}[/red]")
+                return
         except Exception as e:
-            console.print(f"[red]Okunamıyor: {e}[/red]")
+            console.print(f"[red]Hata: {e}[/red]")
             return
 
         editor = os.environ.get("EDITOR") or self._cfg.get("default_editor", "vim")
@@ -521,6 +622,78 @@ class WikiPlugin(PluginBase):
                 
         console.print(table)
 
+    def _cmd_ingest_session(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Dump the active chat history to raw/ so omni-daemon's watchdog ingests it.
+
+        Strateji (A — raw/ dump):
+          1. Aktif history'yi okunabilir bir Markdown'a çevirir.
+          2. raw/session_<ts>.md olarak kaydeder.
+          3. omni-daemon watchdog bu dosyayı algılar (~1s) ve wiki/sources/ altına
+             bir özet sayfası oluşturur — /wiki ingest'ten farkı: bu bir
+             SOHBET ÖZETİdir, ham not değil.
+
+        Eğitim verisi üretmek için /distill komutunu kullanın.
+        """
+        history = context.get("history", [])
+        if not history:
+            console.print("[yellow]⚠️  Aktif sohbet geçmişi boş.[/yellow]")
+            return
+
+        # Filter real messages only (no system/shell)
+        messages = [
+            m for m in history
+            if m.get("role") in ("user", "assistant") and m.get("text", "").strip()
+        ]
+        if not messages:
+            console.print("[yellow]⚠️  Geçmişte wiki'ye eklenecek kullanıcı/asistan mesajı bulunamadı.[/yellow]")
+            return
+
+        now = datetime.now()
+        ts = now.strftime("%Y%m%d_%H%M%S")
+        filename = f"session_{ts}.md"
+
+        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
+        raw_dir = root_dir / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        target_path = raw_dir / filename
+
+        # Build Markdown representation of the session
+        lines = [
+            "---",
+            "tag: session-ingest",
+            f"date: {now.isoformat()}",
+            f"message_count: {len(messages)}",
+            "---",
+            f"# Chat Session — {now.strftime('%Y-%m-%d %H:%M')}",
+            "",
+            "> Bu dosya chat-cli `/wiki ingest-session` komutuyla otomatik oluşturulmuştur.",
+            "> omni-daemon bu dosyayı wiki bilgi tabanına entegre edecek.",
+            "",
+        ]
+        for m in messages:
+            role_label = "**Kullanıcı:**" if m["role"] == "user" else "**Asistan:**"
+            text = str(m["text"]).strip()
+            lines.append(f"{role_label}\n\n{text}")
+            lines.append("\n---\n")
+
+        try:
+            target_path.write_text("\n".join(lines), encoding="utf-8")
+        except Exception as e:
+            console.print(f"[red]Session dosyası yazılamadı: {e}[/red]")
+            return
+
+        console.print(
+            f"[green]✓ Session kaydedildi:[/green] {target_path.name} "
+            f"[dim]({len(messages)} mesaj)[/dim]"
+        )
+        console.print(
+            "[yellow]⚙️  omni-daemon watchdog dosyayı algılayıp wiki'ye işleyecek.[/yellow] "
+            "[dim](~1-60s içinde wiki/sources/ altında görünür)[/dim]"
+        )
+        console.print(
+            "[dim]💡 Eğitim verisi üretmek için /distill komutunu kullanın.[/dim]"
+        )
+
     def _cmd_help(self, args: List[str], context: Dict[str, Any]) -> None:
         table = Table(title="📚 Wiki Komutları (Omni-Context V2)", show_header=True, header_style="bold blue")
         table.add_column("Komut", style="cyan")
@@ -533,9 +706,15 @@ class WikiPlugin(PluginBase):
         table.add_row("/wiki open", "/wiki open <satır_no>", "search tablosundaki No'ya göre okur ve bağlama ekler")
         table.add_row("/wiki show", "/wiki show <satır_no|sayfa>", "Tam içeriği gösterir (arama no veya dosya adı)")
         table.add_row("/wiki add", "/wiki add <sayfa> <başlık>", "Yeni sayfa oluşturur (Rich prompt ile içerik ister)")
+        table.add_row("/wiki ingest", "/wiki ingest <metin>", "Ham metin notunu wiki'ye ekler (arka planda)")
+        table.add_row("/wiki ingest-session", "/wiki ingest-session", "Aktif sohbeti özetleyip wiki'ye ekler (raw/ dump)")
         table.add_row("/wiki edit", "/wiki edit <sayfa>", "Sayfayı sistem editöründe ($EDITOR) açar")
         table.add_row("/wiki delete", "/wiki delete <sayfa>", "Sayfayı kalıcı olarak siler (Onay ister)")
         table.add_row("/wiki list", "/wiki list", "Wiki dizinindeki tüm sayfaları listeler")
         table.add_row("/wiki help", "/wiki help", "Bu yardım menüsünü gösterir")
 
         console.print(table)
+        console.print(
+            "[dim]💡 Eğitim verisi için [cyan]/distill[/cyan] | "
+            "Wiki bilgisi için [cyan]/wiki ingest-session[/cyan][/dim]"
+        )

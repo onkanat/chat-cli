@@ -16,6 +16,9 @@
       "auto_context": false,
       "context_top_k": 3,
       "request_timeout": 30
+    },
+    "distill_plugin": {
+      "llmwiki_path": "/Users/hakankilicaslan/Git/LLMwiki"
     }
   },
   "auto_load": true

@@ -5,7 +5,7 @@ import shlex
 import re
 import sys
 import io
-import contextlib
+
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -876,7 +876,7 @@ def run_chat(
                                 json_tool_match = True
                                 history.append({"role": "assistant", "text": reply})
                                 ui_mod.console.print(f"\n[bold red]⚠️ Agent hallucinated JSON Tool:[/bold red] [white]{tool_name}[/white]")
-                                err_msg = f"System Error: JSON tools are NOT supported here. You hallucinated a payload. Use `<call_cmd>/command_name args</call_cmd>` to execute internal commands. Do NOT use JSON."
+                                err_msg = "System Error: JSON tools are NOT supported here. You hallucinated a payload. Use `<call_cmd>/command_name args</call_cmd>` to execute internal commands. Do NOT use JSON."
                                 history.append({"role": "system", "text": err_msg})
                                 ui_mod.console.print(f"[dim]{err_msg}[/dim]\n")
                                 agent_running = True

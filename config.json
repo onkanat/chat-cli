@@ -1,5 +1,5 @@
 {
-  "default_model": "nemotron-cascade-2:30b",
+  "default_model": "gemma4:26b",
   "system_message": "Sen hızlı ve akıcı düşünen bir asistanısın",
   "max_tokens": 16384,
   "ollama_servers": {
@@ -17,7 +17,7 @@
   },
   "persona": {
     "current_persona": "assistant",
-    "last_updated": "2026-04-14T12:19:19.207701+00:00"
+    "last_updated": "2026-04-15T14:47:00.496898+00:00"
   },
   "generation_route": "direct",
   "fallback_to_direct_on_error": true,

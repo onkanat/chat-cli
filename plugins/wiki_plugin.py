@@ -58,7 +58,7 @@ _DEFAULTS: Dict[str, Any] = {
     "wiki_path": "/Users/hakankilicaslan/Git/LLMwiki",
     "auto_context": False,
     "context_top_k": 3,
-    "request_timeout": 30,
+    "request_timeout": 60,
     "default_editor": "vim",
 }
 
@@ -331,12 +331,22 @@ date: {datetime.now().isoformat()}
 
     def _cmd_lint(self, args: List[str], context: Dict[str, Any]) -> None:
         console.print("[yellow]⚕️ Running Wiki health check via Omni-Daemon...[/yellow]")
-        data = self._post("/wiki/lint", {})
-        if data:
+        # Use a higher timeout for linting as it involves LLM analysis of the entire wiki
+        url = self._base_url() + "/api/v1/wiki/lint"
+        timeout = 300
+        try:
+            resp = httpx.post(url, json={}, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
             report = data.get("report") or data.get("message") or str(data)
             console.print(Panel(Markdown(report), title="Wiki Lint Report"))
-        else:
-            console.print("[red]Daemon'dan lint raporu alınamadı veya bağlantı koptu.[/red]")
+        except httpx.TimeoutException:
+            console.print(
+                f"[yellow]⏱ omni-daemon /wiki/lint isteği zaman aşımına uğradı (timeout={timeout}s). "
+                "Daemon arka planda çalışmaya devam ediyor olabilir.[/yellow]"
+            )
+        except Exception as e:
+            console.print(f"[red]Daemon'dan lint raporu alınamadı veya bağlantı koptu: {e}[/red]")
 
     def _cmd_pin(self, args: List[str], context: Dict[str, Any]) -> None:
         if not args:

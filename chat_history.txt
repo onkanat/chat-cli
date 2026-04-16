@@ -1,20 +1,22 @@
-/wiki search pic16f887 çizgi izleyen robot
-/wiki ingest Ucuş kontrol sistemleri
-/distill
-/quit
-/distill
-/distill status
-/quit
-hi
-/distill
-/distill status
-/quit
-/distill
-/distill status
-/model
-/distill
-/distill status
-clear
-/clear
+/wiki search R-2R DAC
+/wiki search R-2R DAC devresi
+/wiki search 8bit R-2R DAC devresi
+/wiki search 8bit R-2R DAC lather devresi
 /wiki
-/wiki ingest-session
+/wiki lint
+/wiki
+/wiki search R-2R lather DAC konvertör.
+/wiki list
+/wiki show ingest_20260415_170155.md
+/wiki show WORKSPACE_ARCHITECTURE.md
+report_R-2R_DAC_Teknolojisi_ve_Gömülü_Sistem özetle.
+/wiki search workspace architecture
+/wiki search   Workspace, `chat-cli`, `omni-daemon`, `system_prompts` ve `LLMwiki` projelerinin birbirine bağlı çalışma      │
+│  ilkelerini, veri akışlarını ve entegrasyon noktalarını belgelemektedir. Bu bileşenler, etkileşimli bir        │
+│  sohbet arayüzü, arka plan hizmetleri, persona kütüphanesi ve bilgi tabanı gibi temel unsurlardan              │
+/help
+/plugin-available
+/plugins-available
+/distill help
+/distill status
+/quit

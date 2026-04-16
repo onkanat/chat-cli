@@ -11,7 +11,7 @@
       "system_prompts_path": "/Users/hakankilicaslan/Git/system_prompts"
     },
     "wiki_plugin": {
-      "omni_daemon_url": "http://localhost:8000",
+      "omni_daemon_url": "http://localhost:9000",
       "wiki_path": "/Users/hakankilicaslan/Git/LLMwiki",
       "auto_context": false,
       "context_top_k": 3,

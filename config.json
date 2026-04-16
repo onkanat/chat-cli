@@ -1,5 +1,5 @@
 {
-  "default_model": "gemma4:26b",
+  "default_model": "qwen3.5:9b",
   "system_message": "Sen hızlı ve akıcı düşünen bir asistanısın",
   "max_tokens": 16384,
   "ollama_servers": {
@@ -17,15 +17,15 @@
   },
   "persona": {
     "current_persona": "assistant",
-    "last_updated": "2026-04-15T14:47:00.496898+00:00"
+    "last_updated": "2026-04-16T20:40:33.950731+00:00"
   },
-  "generation_route": "direct",
+  "generation_route": "auto",
   "fallback_to_direct_on_error": true,
-  "omni_base_url": "http://localhost:8000",
+  "omni_base_url": "http://localhost:9000",
   "omni_top_k": 5,
-  "direct_num_ctx_cap": 4096,
-  "direct_memory_fallback_model": "gemma3:latest",
-  "chat_interface_prefer_direct": true,
+  "direct_num_ctx_cap": 8192,
+  "direct_memory_fallback_model": "qwen3.5:9b",
+  "chat_interface_prefer_direct": false,
   "performance": {
     "temperature": 0.0,
     "num_ctx": 4096,

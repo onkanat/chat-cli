@@ -618,3 +618,27 @@ class PersonaSelectorPlugin(PluginBase):
             return data.get("persona", {}).get("current_persona")
         except Exception:
             return None
+
+    # ---- Auto-Router public API ---------------------------------------------
+
+    def get_best_persona(
+        self, query: str, threshold: float = 1.5
+    ) -> Optional[str]:
+        """IDF skoru ile en uygun persona kimliğini döndür.
+
+        En yüksek skor ``threshold`` değerini geçemezse ``None`` döner;
+        bu şekilde bağlam uyumsuz mesajlarda gereksiz switch engellenir.
+
+        Args:
+            query: Kullanıcı mesajı.
+            threshold: Bu skoru geçemeyen eşleşmeler yok sayılır.
+
+        Returns:
+            Persona kimliği veya ``None``.
+        """
+        if not self.personas:
+            return None
+        matches = _idf_score_personas(query, self.personas)
+        if matches and matches[0][1] >= threshold:
+            return matches[0][0]
+        return None

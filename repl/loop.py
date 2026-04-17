@@ -14,7 +14,10 @@ import ui as ui_mod
 import analytics
 from lib.agent_orchestrator import AgentOrchestrator
 from lib.command_executor import execute_command, CommandContext
-from lib.parse_utils import parse_run_args
+from lib.parse_utils import (
+    parse_run_args,
+    parse_natural_language_command,
+)
 from lib.system_prompt_manager import SystemPromptManager
 from lib.plugin_executor import (
     PluginCommandExecutor,
@@ -782,7 +785,69 @@ def run_chat(
                     )
                     continue
 
+            natural_cmd = parse_natural_language_command(prompt)
+            if natural_cmd:
+                cmd, args = natural_cmd
+                analytics_manager.track_command(cmd)
+
+                ctx = CommandContext(
+                    history=history,
+                    current_model=CURRENT_MODEL,
+                    plugin_manager=plugin_manager,
+                    config=config,
+                    analytics_manager=analytics_manager,
+                    ui_mod=ui_mod,
+                    ollama_wrapper=ow,
+                    chat_context=chat_context,
+                )
+                should_continue, was_handled = execute_user_command(
+                    cmd,
+                    args,
+                    ctx,
+                    history,
+                    hpath,
+                )
+                if not should_continue:
+                    return
+                if was_handled:
+                    continue
+
+                # Fallback: plugin command path
+                legacy_context = {
+                    "history": history,
+                    "current_model": CURRENT_MODEL,
+                    "analytics_manager": analytics_manager,
+                    "ui_mod": ui_mod,
+                    "ollama_wrapper": ow,
+                    "chat_context": chat_context,
+                    "config": config,
+                }
+                if plugin_manager.execute_command(
+                    cmd,
+                    args,
+                    legacy_context,
+                ):
+                    continue
+
             history.append({"role": "user", "text": prompt})
+
+            # Auto-Router: IDF skoru ile persona otomatik seç (opt-in)
+            if config.get("auto_persona_routing") and persona_plugin:
+                best_id = persona_plugin.get_best_persona(prompt)
+                if best_id and best_id != chat_context.get("persona"):
+                    auto_ctx = {
+                        "history": history,
+                        "current_model": CURRENT_MODEL,
+                        "analytics_manager": analytics_manager,
+                        "ui_mod": ui_mod,
+                        "ollama_wrapper": ow,
+                        "chat_context": chat_context,
+                        "config": config,
+                    }
+                    persona_plugin._set_persona(best_id, auto_ctx)
+                    ui_mod.console.print(
+                        f"[dim]🔄 Persona: {best_id}[/dim]"
+                    )
 
             # Create and run agent orchestrator
             # Build system message with persona and agent policy

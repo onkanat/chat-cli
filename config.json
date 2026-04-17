@@ -1,5 +1,5 @@
 {
-  "default_model": "qwen3.5:9b",
+  "default_model": "nemotron-cascade-2:30b",
   "system_message": "Sen hızlı ve akıcı düşünen bir asistanısın",
   "max_tokens": 16384,
   "ollama_servers": {
@@ -17,15 +17,16 @@
   },
   "persona": {
     "current_persona": "assistant",
-    "last_updated": "2026-04-17T12:13:30.087483+00:00"
+    "last_updated": "2026-04-17T22:05:20.786632+00:00"
   },
-  "generation_route": "auto",
+  "generation_route": "omni",
   "fallback_to_direct_on_error": true,
   "omni_base_url": "http://localhost:9000",
   "omni_top_k": 5,
   "direct_num_ctx_cap": 8192,
   "direct_memory_fallback_model": "qwen3.5:9b",
   "chat_interface_prefer_direct": false,
+  "auto_persona_routing": false,
   "performance": {
     "temperature": 0.0,
     "num_ctx": 4096,
@@ -34,5 +35,6 @@
     "parallel": 4,
     "num_keep": 128,
     "low_vram": false
-  }
+  },
+  "current_session_id": "20260418_001659_39b2fc"
 }

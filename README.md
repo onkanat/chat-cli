@@ -5,18 +5,23 @@ Modern, modular terminal-based chat interface for Ollama with advanced features.
 ## ⚡ Quick Start
 
 ```bash
-# Install dependencies
+# macOS-first (önerilen)
+python3 -m venv .chat
+source .chat/bin/activate
 pip install -r requirements.txt
 
 # Run interactive chat
-python main.py chat
+python3 main.py chat
 
 # List available models
-python main.py list-models-cmd
+python3 main.py list-models-cmd
 
 # Show all commands
-python main.py --help
+python3 main.py --help
 ```
+
+> EN: Use a virtual environment on externally-managed Python systems.
+> TR: Dışarıdan yönetilen Python kurulumlarında mutlaka sanal ortam kullanın.
 
 ## 🎯 Key Features
 
@@ -24,6 +29,8 @@ python main.py --help
 - **Multi-line input** with readline support
 - **Shell integration** with `!command` syntax
 - **Plugin system** for extensibility (includes native `/file`, `persona` selection, and direct **/wiki** slash subcommands like `/wiki pin`, `/wiki search` via Omni-Daemon)
+- **Persona Auto-Router (opt-in)**: incoming prompt'u IDF/N-gram skoruyla en uygun persona'ya otomatik yönlendirme
+- **`/wiki save`**: son assistant yanıtını doğrudan `wiki/concepts/` altına kaydetme
 - **Analytics & monitoring** built-in
 - **Session management** for conversation history
 - **Model profiles** with optimized context handling
@@ -62,7 +69,7 @@ main.py              # Typer CLI bootstrap and command registration (225 lines)
 ├── plugins/        # Plugin system with registry
 ├── analytics/      # Usage tracking and reporting
 ├── repl/           # Interactive REPL loop
-└── tests/          # Test suite (44 tests passing)
+└── tests/          # Test suite
 ```
 
 **Design Principles:**
@@ -106,12 +113,39 @@ python scripts/skills_to_json.py     # prompts.json + persona_map.yaml güncelle
 ## 🧪 Testing
 
 ```bash
-# Run all tests (45 passing)
-pytest tests/
+# Primary
+python3 -m pytest tests/ -q
 
-# Run with coverage
-pytest --cov=. tests/
+# Focused regression set (REPL + parser + plugins + wiki + persona router)
+python3 -m pytest tests/test_agent_utils.py tests/test_faz2_command_executor.py tests/test_parse_utils.py tests/test_faz3_orchestrator.py tests/test_faz4_system_prompt.py tests/test_faz5_integration.py tests/test_faz6_plugin_executor.py tests/test_session_manager_fixes.py tests/test_faz21_user_path.py tests/test_tool_wiki.py tests/test_persona_router.py -q
 ```
+
+## 🧠 Persona Auto-Router (Yeni)
+
+`persona_selector` plugin'i, `system_prompts` kaynaklarından yüklenen persona etiketlerini
+IDF + n-gram skorlama ile değerlendirir ve istenirse aktif personayı otomatik değiştirir.
+
+`config.json`:
+
+```json
+{
+	"auto_persona_routing": true
+}
+```
+
+- `false` (default): manuel persona yönetimi (`/persona set ...`)
+- `true`: her kullanıcı mesajında en iyi persona hesaplanır; farklıysa hot-swap yapılır
+
+## 📝 Wiki Save Akışı
+
+Yeni `/wiki save` komutu, son assistant yanıtını wiki sayfası olarak kaydeder.
+
+```bash
+# REPL içinde
+/wiki save yeni_sayfa.md "Sayfa Başlığı"
+```
+
+Bu komut, modelin ürettiği son içeriği tekrar kopyalamadan hızlıca wiki'ye almayı sağlar.
 
 ## 🚀 Recent Changes (Omni-Architecture V2)
 

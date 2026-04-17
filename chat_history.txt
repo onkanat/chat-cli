@@ -1,20 +1,20 @@
-/wiki
-/wiki search R-2R lather DAC konvertör.
-/wiki list
-/wiki show ingest_20260415_170155.md
-/wiki show WORKSPACE_ARCHITECTURE.md
-report_R-2R_DAC_Teknolojisi_ve_Gömülü_Sistem özetle.
-/wiki search workspace architecture
-/wiki search   Workspace, `chat-cli`, `omni-daemon`, `system_prompts` ve `LLMwiki` projelerinin birbirine bağlı çalışma      │
-│  ilkelerini, veri akışlarını ve entegrasyon noktalarını belgelemektedir. Bu bileşenler, etkileşimli bir        │
-│  sohbet arayüzü, arka plan hizmetleri, persona kütüphanesi ve bilgi tabanı gibi temel unsurlardan              │
-/help
-/plugin-available
-/plugins-available
-/distill help
-/distill status
+/kiwix list
+/kiwix
+/kiwix info
+/kiwix open
+/kiwix search
+/kiwix search Fortan 2018 status
 /quit
-/persona reload
+/kiwix list
+/kiwix search Fortan 2018 status
+/kiwix search Fortran 2018 status
+/kiwix search Fortran
+/kiwix search fortran
+/kiwix
+/kiwix open c5e67430-1169-f551-e397-913a94028f7e
+/kiwix search fortran 2008 status
 /quit
-/persona
-/quit
+/kiwix list
+/kiwix search fortran 2008 status
+/kiwix open c5e67430-1169-f551-e397-913a94028f7e/fortran-2008-status
+Fortran 2008'de desteklenmeyen özellikler nelerdir?

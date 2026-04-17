@@ -227,6 +227,13 @@ def settings_menu(config: dict) -> dict:
         "gemma3:latest",
     )
     chat_prefer_direct = bool(config.get("chat_interface_prefer_direct", True))
+    omni_agent_error_fallback = bool(
+        config.get("omni_agent_error_fallback", False)
+    )
+    omni_noise_detection = bool(config.get("omni_noise_detection", False))
+    omni_noise_keywords: list = config.get("omni_noise_keywords", [])
+    if not isinstance(omni_noise_keywords, list):
+        omni_noise_keywords = []
 
     ui_mod.console.print(
         "[dim]Current Temperature:[/dim] "
@@ -268,6 +275,30 @@ def settings_menu(config: dict) -> dict:
         "[dim]Chat interface direct preference:[/dim] "
         f"[cyan]{'on' if chat_prefer_direct else 'off'}[/cyan]"
     )
+    omni_status = (
+        "[red]OFF (direct)[/red]"
+        if current_route == "direct"
+        else "[green]ON[/green]"
+    )
+    ui_mod.console.print(
+        f"[dim]Omni-Daemon:[/dim] {omni_status}"
+    )
+    ui_mod.console.print(
+        "[dim]Omni agent error auto-fallback:[/dim] "
+        f"[cyan]{'on' if omni_agent_error_fallback else 'off'}[/cyan]"
+    )
+    ui_mod.console.print(
+        "[dim]Omni noise detection:[/dim] "
+        f"[cyan]{'on' if omni_noise_detection else 'off'}[/cyan]"
+    )
+    kw_display = (
+        ", ".join(omni_noise_keywords[:5])
+        if omni_noise_keywords
+        else "[dim]none[/dim]"
+    )
+    ui_mod.console.print(
+        f"[dim]Omni noise keywords:[/dim] [cyan]{kw_display}[/cyan]"
+    )
     if current_system_message:
         display_msg = (
             current_system_message[:50] + "..."
@@ -296,10 +327,14 @@ def settings_menu(config: dict) -> dict:
     ui_mod.console.print("11. Change direct num_ctx cap")
     ui_mod.console.print("12. Change direct OOM fallback model")
     ui_mod.console.print("13. Toggle chat direct preference")
-    ui_mod.console.print("14. Back to chat")
+    ui_mod.console.print("14. Toggle Omni-Daemon (quick on/off)")
+    ui_mod.console.print("15. Toggle Omni agent error auto-fallback")
+    ui_mod.console.print("16. Toggle Omni noise detection")
+    ui_mod.console.print("17. Edit Omni noise keywords")
+    ui_mod.console.print("18. Back to chat")
 
     try:
-        choice = input("\nSelect option (1-14): ").strip()
+        choice = input("\nSelect option (1-18): ").strip()
 
         if choice == "1":
             try:
@@ -682,6 +717,98 @@ def settings_menu(config: dict) -> dict:
             )
 
         elif choice == "14":
+            # Quick toggle: omni <-> direct
+            route_now = str(config.get("generation_route", "omni")).lower()
+            if route_now == "direct":
+                # Restore previous omni route (or default to "omni")
+                prev = str(
+                    config.get("omni_previous_route", "omni")
+                ).lower()
+                if prev not in {"omni", "auto"}:
+                    prev = "omni"
+                config["generation_route"] = prev
+                ui_mod.console.print(
+                    f"[green]✓ Omni-Daemon enabled[/green] "
+                    f"[white](route: {prev})[/white]"
+                )
+            else:
+                config["omni_previous_route"] = route_now
+                config["generation_route"] = "direct"
+                ui_mod.console.print(
+                    "[yellow]✓ Omni-Daemon disabled[/yellow] "
+                    "[white](route: direct)[/white]"
+                )
+
+        elif choice == "15":
+            current_afb = bool(config.get("omni_agent_error_fallback", False))
+            config["omni_agent_error_fallback"] = not current_afb
+            status = "on" if not current_afb else "off"
+            ui_mod.console.print(
+                "[green]✓ Omni agent error auto-fallback:[/green] "
+                f"[white]{status}[/white]"
+            )
+            if not current_afb:
+                ui_mod.console.print(
+                    "[dim]Agent görevlerinde Omni hatası olursa "
+                    "otomatik direct moduna geçer.[/dim]"
+                )
+
+        elif choice == "16":
+            current_nd = bool(config.get("omni_noise_detection", False))
+            config["omni_noise_detection"] = not current_nd
+            status = "on" if not current_nd else "off"
+            ui_mod.console.print(
+                "[green]✓ Omni noise detection:[/green] "
+                f"[white]{status}[/white]"
+            )
+            if not current_nd:
+                ui_mod.console.print(
+                    "[dim]Yanıt buffer'a alınır, RAG sızıntısı "
+                    "veya keyword hit → direct fallback tetiklenir.[/dim]"
+                )
+
+        elif choice == "17":
+            current_kws: list = config.get("omni_noise_keywords", [])
+            if not isinstance(current_kws, list):
+                current_kws = []
+            ui_mod.console.print(
+                "\n[bold]Omni Noise Keywords[/bold]"
+            )
+            ui_mod.console.print(
+                "[dim]Yanıtta bu kelimeler varsa "
+                "ama soruda yoksa gürültü sayılır.[/dim]"
+            )
+            if current_kws:
+                ui_mod.console.print(
+                    "[dim]Mevcut:[/dim] "
+                    f"[cyan]{', '.join(current_kws)}[/cyan]"
+                )
+            else:
+                ui_mod.console.print(
+                    "[dim]Mevcut: boş (pattern-only detection)[/dim]"
+                )
+            ui_mod.console.print(
+                "[dim]Virgülle ayırarak gir. "
+                "Boş bırak → mevcut listeyi koru.[/dim]"
+            )
+            raw = input("Yeni keyword listesi: ").strip()
+            if raw:
+                new_kws = [
+                    kw.strip()
+                    for kw in raw.split(",")
+                    if kw.strip()
+                ]
+                config["omni_noise_keywords"] = new_kws
+                ui_mod.console.print(
+                    "[green]✓ Noise keywords güncellendi:[/green] "
+                    + f"[white]{', '.join(new_kws)}[/white]"
+                )
+            else:
+                ui_mod.console.print(
+                    "[yellow]⚠️  Noise keywords değişmedi[/yellow]"
+                )
+
+        elif choice == "18":
             return config
 
         else:

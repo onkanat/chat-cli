@@ -197,6 +197,13 @@ class AgentOrchestrator:
             ):
                 parts.append(chunk)
                 buffer = "".join(parts)
+                
+                # Check for models that omitted <think> but still emit </think>
+                if "</think>" in buffer:
+                    # Clear the entire thought process that was rendered so far
+                    buffer = buffer.split("</think>")[-1].lstrip()
+                    parts = [buffer]
+                
                 char_count += len(chunk)
                 chunk_counter += 1
 
@@ -244,7 +251,7 @@ class AgentOrchestrator:
         )
         self.ui_mod.console.print()
 
-        return "".join(parts)
+        return buffer
 
     def _get_reply_sync(self, system_message: str) -> str:
         """Get synchronous reply from model."""

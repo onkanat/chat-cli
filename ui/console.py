@@ -87,11 +87,157 @@ def _normalize_omni_base_url(config: Dict[str, Any]) -> str:
     return base.rstrip("/")
 
 
+def _auto_disable_omni_on_agent_error(config: Dict[str, Any]) -> None:
+    """Persist a switch to 'direct' route when agent error fallback fires."""
+    try:
+        from lib.config import save_config as _save_config
+        current = str(config.get("generation_route", "omni")).lower()
+        if current != "direct":
+            config["omni_previous_route"] = current
+        config["generation_route"] = "direct"
+        _save_config(config)
+        logger.warning(
+            "omni_agent_error_fallback: "
+            "generation_route switched to direct and saved"
+        )
+    except Exception:
+        logger.exception("omni_agent_error_fallback save failed")
+
+
 def _normalize_top_k(config: Dict[str, Any]) -> int:
     value = config.get("omni_top_k", 5)
     if not isinstance(value, int):
         return 5
     return max(1, min(20, value))
+
+
+def _extract_latest_query(prompt_or_history: Any) -> str:
+    """Extract the latest user-facing query text."""
+    if isinstance(prompt_or_history, list):
+        for item in reversed(prompt_or_history):
+            if not isinstance(item, dict):
+                continue
+            if item.get("role") != "user":
+                continue
+            text = str(item.get("text", "")).strip()
+            if text:
+                return text
+        return ""
+    return str(prompt_or_history or "").strip()
+
+
+def _is_context_dependent_query(text: str) -> bool:
+    """Heuristic to detect follow-up prompts that depend on prior turns."""
+    if not text:
+        return False
+
+    normalized = text.strip().casefold()
+    normalized = normalized.replace("ı", "i")
+
+    # Kısa ve takip niteliğindeki komutlar bağlama daha çok bağımlıdır.
+    if len(normalized) <= 140:
+        cues = (
+            "bağlam",
+            "baglam",
+            "devam et",
+            "continue",
+            "buna gore",
+            "buna göre",
+            "gorevleri baslat",
+            "görevleri başlat",
+            "planla",
+            "simdi",
+            "şimdi",
+            "tamam",
+        )
+        if any(cue in normalized for cue in cues):
+            return True
+
+    return False
+
+
+def _collect_recent_user_context(
+    prompt_or_history: Any,
+    *,
+    max_items: int,
+    max_chars: int,
+) -> str:
+    """Collect previous user turns (excluding latest) as context hints."""
+    if not isinstance(prompt_or_history, list):
+        return ""
+
+    # locate latest user index
+    latest_user_index: int | None = None
+    for idx in range(len(prompt_or_history) - 1, -1, -1):
+        item = prompt_or_history[idx]
+        if isinstance(item, dict) and item.get("role") == "user":
+            latest_user_index = idx
+            break
+
+    if latest_user_index is None:
+        return ""
+
+    snippets: List[str] = []
+    for idx in range(latest_user_index - 1, -1, -1):
+        item = prompt_or_history[idx]
+        if not isinstance(item, dict):
+            continue
+        if item.get("role") != "user":
+            continue
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        snippets.append(text)
+        if len(snippets) >= max_items:
+            break
+
+    if not snippets:
+        return ""
+
+    snippets.reverse()
+    lines = [f"- {snippet}" for snippet in snippets]
+    joined = "\n".join(lines)
+    if len(joined) > max_chars:
+        joined = joined[-max_chars:]
+    return joined
+
+
+def _build_omni_query(prompt_or_history: Any, config: Dict[str, Any]) -> str:
+    """Build query sent to Omni with optional context enrichment."""
+    latest_query = _extract_latest_query(prompt_or_history)
+    if not latest_query:
+        return "Assistant prompt"
+
+    if not bool(config.get("omni_context_enrichment", True)):
+        return latest_query
+
+    if not _is_context_dependent_query(latest_query):
+        return latest_query
+
+    max_items_raw = config.get("omni_context_turns", 2)
+    max_chars_raw = config.get("omni_context_chars", 600)
+
+    if not isinstance(max_items_raw, int):
+        max_items_raw = 2
+    if not isinstance(max_chars_raw, int):
+        max_chars_raw = 600
+
+    max_items = max(1, min(5, max_items_raw))
+    max_chars = max(200, min(2000, max_chars_raw))
+
+    hint = _collect_recent_user_context(
+        prompt_or_history,
+        max_items=max_items,
+        max_chars=max_chars,
+    )
+    if not hint:
+        return latest_query
+
+    return (
+        f"{latest_query}\n\n"
+        "[Sohbet bağlamı - önceki kullanıcı mesajları]\n"
+        f"{hint}"
+    )
 
 
 def _should_emit_failover_messages(config: Dict[str, Any]) -> bool:
@@ -142,6 +288,74 @@ def _looks_like_rag_error_text(text: str) -> bool:
             and "/api/generate" in normalized
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# Omni noise / RAG-bleed detection
+# ---------------------------------------------------------------------------
+
+# Structural artifacts that appear when RAG context leaks into the response
+_RAG_BLEED_PATTERNS: tuple[str, ...] = (
+    "context:\n",
+    "source:\n",
+    "document:\n",
+    "retrieved context",
+    "relevant documents",
+    "based on the provided context",
+    "according to the retrieved",
+    "the following documents",
+    "from the knowledge base",
+    "\n---\n",
+    "\n===\n",
+)
+
+
+def _looks_like_noisy_response(
+    query: str,
+    response: str,
+    config: Dict[str, Any],
+) -> bool:
+    """Return True when Omni's response looks like RAG bleed / noise.
+
+    Two detection layers:
+    1. Structural: known RAG artifact patterns in the response text.
+    2. Keyword: user-defined ``omni_noise_keywords`` that should not appear
+       in responses unless the query itself mentions them.
+    """
+    if not response:
+        return False
+
+    resp_lower = response.lower()
+
+    # Layer 1: structural RAG bleed patterns
+    for pattern in _RAG_BLEED_PATTERNS:
+        if pattern in resp_lower:
+            logger.debug(
+                "omni_noise_structural_hit pattern=%r resp_head=%s",
+                pattern,
+                response[:120],
+            )
+            return True
+
+    # Layer 2: user-defined noise keywords
+    noise_kws: list = config.get("omni_noise_keywords", [])
+    if not isinstance(noise_kws, list):
+        return False
+
+    query_lower = query.lower()
+    for kw in noise_kws:
+        if not isinstance(kw, str) or not kw.strip():
+            continue
+        kw_lower = kw.strip().lower()
+        if kw_lower in resp_lower and kw_lower not in query_lower:
+            logger.debug(
+                "omni_noise_keyword_hit keyword=%r resp_head=%s",
+                kw,
+                response[:120],
+            )
+            return True
+
+    return False
 
 
 def _extract_request_context(
@@ -503,7 +717,60 @@ def run_shell_command(command: str) -> str:
         return f"Error running command: {e}"
 
 
-def get_model_reply_stream(
+def _strip_think_tags(stream: Iterator[str]) -> Iterator[str]:
+    """Helper to strip <think>...</think> blocks from a text stream."""
+    buffer = ""
+    in_think = False
+
+    for chunk in stream:
+        buffer += chunk
+
+        while buffer:
+            if not in_think:
+                start_idx = buffer.find("<think>")
+                if start_idx != -1:
+                    if start_idx > 0:
+                        yield buffer[:start_idx]
+                    in_think = True
+                    buffer = buffer[start_idx + 7:]
+                else:
+                    partial = False
+                    for i in range(1, 7):
+                        if buffer.endswith("<think>"[:i]):
+                            partial = True
+                            if len(buffer) > i:
+                                yield buffer[:-i]
+                                buffer = buffer[-i:]
+                            break
+                    if not partial:
+                        yield buffer
+                        buffer = ""
+                    else:
+                        break
+            else:
+                end_idx = buffer.find("</think>")
+                if end_idx != -1:
+                    in_think = False
+                    buffer = buffer[end_idx + 8:]
+                    if buffer.startswith("\n"):
+                        buffer = buffer[1:]
+                else:
+                    partial = False
+                    for i in range(1, 8):
+                        if buffer.endswith("</think>"[:i]):
+                            partial = True
+                            buffer = buffer[-i:]
+                            break
+                    if not partial:
+                        buffer = ""
+                    else:
+                        break
+
+    if buffer and not in_think:
+        yield buffer
+
+
+def _get_model_reply_stream_raw(
     prompt_or_history,
     max_tokens: int = history_mod.DEFAULT_MAX_CONTEXT_TOKENS,
     max_output_chars: int = history_mod.DEFAULT_MAX_OUTPUT_CHARS,
@@ -549,11 +816,7 @@ def get_model_reply_stream(
     selected_model = _select_model_name(model_name, config)
     top_k = _normalize_top_k(config)
     omni_base_url = _normalize_omni_base_url(config)
-    latest_query = "Assistant prompt"
-    if isinstance(prompt_or_history, list) and len(prompt_or_history) > 0:
-        latest_query = prompt_or_history[-1].get("text", "")
-    elif isinstance(prompt_or_history, str):
-        latest_query = prompt_or_history
+    latest_query = _build_omni_query(prompt_or_history, config)
 
     url = f"{omni_base_url}/api/v1/stream"
     payload = {
@@ -583,6 +846,14 @@ def get_model_reply_stream(
             resp.raise_for_status()
             chunk_count = 0
             yielded_any_content = False
+            noise_detection = bool(
+                config.get("omni_noise_detection", False)
+            )
+            # When noise detection is on, buffer all chunks first so we
+            # can inspect the full response before yielding anything.
+            stream_buffer: list[str] = [] if noise_detection else []
+            collect_for_noise = noise_detection
+
             for chunk in resp.iter_content(
                 chunk_size=None,
                 decode_unicode=True,
@@ -621,11 +892,52 @@ def get_model_reply_stream(
                         )
                         return
 
-                    chunk_count += 1
-                    yielded_any_content = True
-                    yield chunk_str
+                    if collect_for_noise:
+                        stream_buffer.append(chunk_str)
+                    else:
+                        chunk_count += 1
+                        yielded_any_content = True
+                        yield chunk_str
 
-            if chunk_count == 0:
+            # Noise detection: inspect buffered full response
+            if collect_for_noise and stream_buffer:
+                full_response = "".join(stream_buffer)
+                if _looks_like_noisy_response(
+                    latest_query, full_response, config
+                ):
+                    logger.warning(
+                        "omni_stream_noise_detected request_id=%s "
+                        "model=%s resp_head=%s",
+                        request_id,
+                        selected_model,
+                        full_response[:200],
+                    )
+                    agent_fallback = bool(
+                        config.get("omni_agent_error_fallback", False)
+                    )
+                    if agent_fallback:
+                        _auto_disable_omni_on_agent_error(config)
+                    if _should_emit_failover_messages(config):
+                        yield (
+                            "[Omni-Daemon: gürültülü yanıt tespit edildi] "
+                            "Falling back to direct Ollama...\n"
+                        )
+                    yield from _stream_direct_ollama(
+                        prompt_or_history,
+                        max_tokens=max_tokens,
+                        max_output_chars=max_output_chars,
+                        system_message=system_message,
+                        model_name=selected_model,
+                        config=config,
+                    )
+                    return
+                else:
+                    # Clean — yield buffered chunks
+                    for buffered in stream_buffer:
+                        chunk_count += 1
+                        yield buffered
+
+            if chunk_count == 0 and not stream_buffer:
                 logger.warning(
                     "omni_stream_empty request_id=%s model=%s",
                     request_id,
@@ -663,6 +975,24 @@ def get_model_reply_stream(
             )
             return
 
+        agent_fallback = bool(config.get("omni_agent_error_fallback", False))
+        if agent_fallback and route_mode != "direct":
+            _auto_disable_omni_on_agent_error(config)
+            if _should_emit_failover_messages(config):
+                yield (
+                    "[Omni-Daemon Error: agent fallback aktif, "
+                    "route direct'e alındı. Tekrar deneniyor...]\n"
+                )
+            yield from _stream_direct_ollama(
+                prompt_or_history,
+                max_tokens=max_tokens,
+                max_output_chars=max_output_chars,
+                system_message=system_message,
+                model_name=selected_model,
+                config=config,
+            )
+            return
+
         if detail:
             yield (
                 f"[Omni-Daemon Error: status={status_code or 'unknown'}, "
@@ -682,7 +1012,44 @@ def get_model_reply_stream(
         yield f"[Stream error: {e}]"
 
 
-def get_model_reply_sync(
+def get_model_reply_stream(
+    prompt_or_history,
+    max_tokens: int = history_mod.DEFAULT_MAX_CONTEXT_TOKENS,
+    max_output_chars: int = history_mod.DEFAULT_MAX_OUTPUT_CHARS,
+    system_message: str = "",
+    model_name: str | None = None,
+) -> Iterator[str]:
+    raw_stream = _get_model_reply_stream_raw(
+        prompt_or_history,
+        max_tokens=max_tokens,
+        max_output_chars=max_output_chars,
+        system_message=system_message,
+        model_name=model_name,
+    )
+    yield from _strip_think_tags(raw_stream)
+
+
+def _strip_think_tags_str(text: str) -> str:
+    """Helper to strip <think>...</think> blocks from a full string."""
+    while "<think>" in text and "</think>" in text:
+        start_idx = text.find("<think>")
+        end_idx = text.find("</think>")
+        if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+            suffix = text[end_idx + 8:]
+            if suffix.startswith("\n"):
+                suffix = suffix[1:]
+            text = text[:start_idx] + suffix
+        else:
+            break
+            
+    # Fallback: if only </think> is present (model omitted <think> due to prompt forcing)
+    if "</think>" in text and "<think>" not in text:
+        text = text.split("</think>")[-1].lstrip()
+        
+    return text.strip()
+
+
+def _get_model_reply_sync_raw(
     prompt_or_history,
     max_tokens: int = history_mod.DEFAULT_MAX_CONTEXT_TOKENS,
     max_output_chars: int = history_mod.DEFAULT_MAX_OUTPUT_CHARS,
@@ -726,11 +1093,7 @@ def get_model_reply_sync(
         selected_model = _select_model_name(model_name, config)
         top_k = _normalize_top_k(config)
         omni_base_url = _normalize_omni_base_url(config)
-        latest_query = "Assistant prompt"
-        if isinstance(prompt_or_history, list) and len(prompt_or_history) > 0:
-            latest_query = prompt_or_history[-1].get("text", "")
-        elif isinstance(prompt_or_history, str):
-            latest_query = prompt_or_history
+        latest_query = _build_omni_query(prompt_or_history, config)
 
         url = f"{omni_base_url}/api/v1/generate"
         payload = {
@@ -782,6 +1145,30 @@ def get_model_reply_sync(
                 model_name=selected_model,
                 config=config,
             )
+        noise_detection = bool(config.get("omni_noise_detection", False))
+        if noise_detection and _looks_like_noisy_response(
+            latest_query, str(response_text), config
+        ):
+            logger.warning(
+                "omni_sync_noise_detected request_id=%s "
+                "model=%s resp_head=%s",
+                request_id,
+                selected_model,
+                str(response_text)[:200],
+            )
+            agent_fallback = bool(
+                config.get("omni_agent_error_fallback", False)
+            )
+            if agent_fallback:
+                _auto_disable_omni_on_agent_error(config)
+            return _sync_direct_ollama(
+                prompt_or_history,
+                max_tokens=max_tokens,
+                max_output_chars=max_output_chars,
+                system_message=system_message,
+                model_name=selected_model,
+                config=config,
+            )
         return response_text
     except requests.exceptions.RequestException as e:
         err_request_id, detail, status_code = _extract_request_context(e)
@@ -806,6 +1193,17 @@ def get_model_reply_sync(
                 model_name=selected_model,
                 config=config,
             )
+        agent_fallback = bool(config.get("omni_agent_error_fallback", False))
+        if agent_fallback and route_mode != "direct":
+            _auto_disable_omni_on_agent_error(config)
+            return _sync_direct_ollama(
+                prompt_or_history,
+                max_tokens=max_tokens,
+                max_output_chars=max_output_chars,
+                system_message=system_message,
+                model_name=selected_model,
+                config=config,
+            )
         if detail:
             return (
                 f"[Omni-Daemon Error: status={status_code or 'unknown'}, "
@@ -822,3 +1220,22 @@ def get_model_reply_sync(
             route_mode,
         )
         return f"[Stream error: {e}]"
+
+
+def get_model_reply_sync(
+    prompt_or_history,
+    max_tokens: int = history_mod.DEFAULT_MAX_CONTEXT_TOKENS,
+    max_output_chars: int = history_mod.DEFAULT_MAX_OUTPUT_CHARS,
+    system_message: str = "",
+    model_name: str | None = None,
+) -> str:
+    """Gets synchronous response and strips <think> tags."""
+    raw_response = _get_model_reply_sync_raw(
+        prompt_or_history,
+        max_tokens=max_tokens,
+        max_output_chars=max_output_chars,
+        system_message=system_message,
+        model_name=model_name,
+    )
+    return _strip_think_tags_str(raw_response)
+

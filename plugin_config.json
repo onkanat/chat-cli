@@ -4,9 +4,15 @@
     "persona_selector",
     "file_plugin",
     "wiki_plugin",
-    "distill_plugin"
+    "distill_plugin",
+    "kiwix_plugin"
   ],
   "plugin_settings": {
+    "kiwix_plugin": {
+      "kiwix_url": "http://192.168.1.6:9999",
+      "fallback_url": "http://localhost:9999",
+      "timeout": 10
+    },
     "persona_selector": {
       "system_prompts_path": "/Users/hakankilicaslan/Git/system_prompts"
     },

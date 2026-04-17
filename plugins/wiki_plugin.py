@@ -8,6 +8,7 @@ Provides direct slash commands for Wiki operations:
     /wiki open <satır_no>             - Open/inject a search result by its row number
     /wiki show <sayfa>                - Read a page's markdown in terminal without pinning
     /wiki add <dosya> <başlık> [içerik] - Create a new wiki page (opens multi-line prompt if no content)
+    /wiki save <dosya> [başlık]         - Save last assistant response as a new wiki page
     /wiki edit <dosya>                - Edit a wiki page (opens full file in multi-line prompt or system editor)
     /wiki delete <dosya>              - Delete a wiki page
     /wiki list                        - List all wiki files
@@ -54,7 +55,7 @@ except ImportError:
 console = Console()
 
 _DEFAULTS: Dict[str, Any] = {
-    "omni_daemon_url": "http://localhost:8000",
+    "omni_daemon_url": "http://localhost:9000",
     "wiki_path": "/Users/hakankilicaslan/Git/LLMwiki",
     "auto_context": False,
     "context_top_k": 3,
@@ -98,6 +99,7 @@ class WikiPlugin(PluginBase):
             "open": self._cmd_open,
             "show": self._cmd_show,
             "add": self._cmd_add,
+            "save": self._cmd_save,
             "edit": self._cmd_edit,
             "delete": self._cmd_delete,
             "list": self._cmd_list,
@@ -517,7 +519,7 @@ date: {datetime.now().isoformat()}
 
     def _cmd_add(self, args: List[str], context: Dict[str, Any]) -> None:
         if len(args) < 2:
-            console.print("[yellow]Usage: /add <dosya.md> \"Başlık\" [opsiyonel içerik][/yellow]")
+            console.print("[yellow]Usage: /wiki add <dosya.md> \"Başlık\" [opsiyonel içerik][/yellow]")
             return
 
         filename = args[0]
@@ -550,6 +552,55 @@ date: {datetime.now().isoformat()}
             self._api_wiki_index() # Async re-index so Omni-Daemon sees it
         except Exception as e:
             console.print(f"[red]Yazılamadı: {e}[/red]")
+
+    def _cmd_save(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Save the latest assistant response as a new wiki page."""
+        if not args:
+            console.print("[yellow]Usage: /wiki save <dosya.md> [opsiyonel başlık][/yellow]")
+            return
+
+        filename = args[0]
+        if not filename.endswith(".md"):
+            filename += ".md"
+
+        title = args[1] if len(args) > 1 else ""
+
+        history = context.get("history", []) if context else []
+        last_assistant = ""
+        for item in reversed(history):
+            if item.get("role") == "assistant" and str(item.get("text", "")).strip():
+                last_assistant = str(item.get("text", "")).strip()
+                break
+
+        if not last_assistant:
+            console.print(
+                "[red]Son asistan yanıtı bulunamadı. Önce bir içerik ürettirin, sonra /wiki save kullanın.[/red]"
+            )
+            return
+
+        if not title:
+            title = Path(filename).stem.replace("_", " ").replace("-", " ").strip().title()
+
+        root_dir = Path(self._cfg.get("wiki_path", _DEFAULTS["wiki_path"]))
+        target_path = root_dir / "wiki" / "concepts" / filename
+
+        if target_path.exists():
+            console.print(f"[red]Hata: {filename} zaten var. Düzenlemek için /wiki edit kullanın.[/red]")
+            return
+
+        body = last_assistant.rstrip()
+        if body.lstrip().startswith("#"):
+            full_content = f"{body}\n"
+        else:
+            full_content = f"# {title}\n\n{body}\n"
+
+        try:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_text(full_content, encoding="utf-8")
+            console.print(f"[green]✓ Son yanıt sayfa olarak kaydedildi:[/green] {target_path}")
+            self._api_wiki_index()  # Async re-index so Omni-Daemon sees it
+        except Exception as e:
+            console.print(f"[red]Kaydedilemedi: {e}[/red]")
 
     def _cmd_edit(self, args: List[str], context: Dict[str, Any]) -> None:
         if not args:
@@ -716,6 +767,7 @@ date: {datetime.now().isoformat()}
         table.add_row("/wiki open", "/wiki open <satır_no>", "search tablosundaki No'ya göre okur ve bağlama ekler")
         table.add_row("/wiki show", "/wiki show <satır_no|sayfa>", "Tam içeriği gösterir (arama no veya dosya adı)")
         table.add_row("/wiki add", "/wiki add <sayfa> <başlık>", "Yeni sayfa oluşturur (Rich prompt ile içerik ister)")
+        table.add_row("/wiki save", "/wiki save <sayfa> [başlık]", "Son asistan yanıtını yeni sayfa olarak kaydeder")
         table.add_row("/wiki ingest", "/wiki ingest <metin>", "Ham metin notunu wiki'ye ekler (arka planda)")
         table.add_row("/wiki ingest-session", "/wiki ingest-session", "Aktif sohbeti özetleyip wiki'ye ekler (raw/ dump)")
         table.add_row("/wiki edit", "/wiki edit <sayfa>", "Sayfayı sistem editöründe ($EDITOR) açar")

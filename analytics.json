@@ -895,6 +895,118 @@
       "messages": 0,
       "tokens": 0,
       "commands": []
+    },
+    {
+      "id": "20260417_153333",
+      "start_time": "2026-04-17T15:33:33.559480",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_154439",
+      "start_time": "2026-04-17T15:44:39.863912",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_155010",
+      "start_time": "2026-04-17T15:50:10.803857",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_180310",
+      "start_time": "2026-04-17T18:03:10.024730",
+      "model": "gpt-oss:20b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_184749",
+      "start_time": "2026-04-17T18:47:49.825252",
+      "model": "fake-model",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_184749",
+      "start_time": "2026-04-17T18:47:49.838841",
+      "model": "fake-model",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_185732",
+      "start_time": "2026-04-17T18:57:32.017181",
+      "model": "gemma4:26b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_203001",
+      "start_time": "2026-04-17T20:30:01.008785",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_233641",
+      "start_time": "2026-04-17T23:36:41.420581",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_235016",
+      "start_time": "2026-04-17T23:50:16.880860",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260418_001048",
+      "start_time": "2026-04-18T00:10:48.337798",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260418_005203",
+      "start_time": "2026-04-18T00:52:03.105277",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260418_005915",
+      "start_time": "2026-04-18T00:59:15.849079",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260418_010520",
+      "start_time": "2026-04-18T01:05:20.785280",
+      "model": "nemotron-cascade-2:30b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
     }
   ],
   "total_messages": 0,
@@ -902,17 +1014,17 @@
   "total_response_time": 0.0,
   "models_used": {},
   "commands_used": {
-    "help": 63,
+    "help": 67,
     "list": 4,
     "model": 16,
     "shell": 20,
-    "settings": 43,
+    "settings": 48,
     "search": 6,
-    "clear": 22,
+    "clear": 25,
     "export": 7,
-    "stats": 12,
+    "stats": 13,
     "analytics": 4,
-    "report": 3,
+    "report": 4,
     "monitor": 4,
     "plugins": 4,
     "plugins-available": 4,
@@ -920,16 +1032,16 @@
     "plugin-info": 2,
     "/persona": 1,
     "persona": 32,
-    "new_session": 50,
+    "new_session": 52,
     "load_history": 2,
-    "exit": 13,
+    "exit": 15,
     "session": 3,
     "save": 5,
     "cls": 1,
     "suggest": 7,
     "pull": 21,
     "models": 12,
-    "quit": 79,
+    "quit": 91,
     "calc": 14,
     "file": 14,
     "personas": 4,
@@ -940,16 +1052,18 @@
     "rm": 5,
     "read_file": 1,
     "new_sesion": 1,
-    "wiki": 134,
+    "wiki": 144,
     "omni": 1,
     "setings": 3,
-    "": 1,
+    "": 2,
     "open": 1,
     "time": 1,
     "distill": 32,
     "ingest": 1,
-    "status": 2,
-    "plugin-available": 1
+    "status": 3,
+    "plugin-available": 1,
+    "stat": 1,
+    "kiwix": 19
   },
   "daily_usage": {},
   "created_at": "2025-11-24T21:01:44.997770"

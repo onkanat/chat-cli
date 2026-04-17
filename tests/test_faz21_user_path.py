@@ -57,9 +57,16 @@ def test_user_command_path_unknown():
         chat_context={},
     )
 
-    should_continue, was_handled = execute_user_command(
-        "nonexistent_cmd", [], ctx, [], Path("/tmp/test.json")
-    )
+    result = MagicMock()
+    result.error = "Unknown command: nonexistent_cmd"
+    result.output = None
+    result.success = False
+    result.state_changes = {}
+
+    with patch("repl.loop.execute_command", return_value=result):
+        should_continue, was_handled = execute_user_command(
+            "nonexistent_cmd", [], ctx, [], Path("/tmp/test.json")
+        )
 
     assert should_continue
     assert not was_handled

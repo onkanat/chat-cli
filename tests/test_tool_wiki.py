@@ -105,3 +105,60 @@ def test_wiki_show_out_of_range(mock_print, wiki_plugin):
     wiki_plugin._cmd_wiki(["show", "99"], {})
     error = any("arası" in str(c) for c in mock_print.call_args_list)
     assert error
+
+
+@patch("plugins.wiki_plugin.WikiPlugin._api_wiki_index")
+@patch("plugins.wiki_plugin.Path.write_text")
+@patch("plugins.wiki_plugin.Path.mkdir")
+@patch("plugins.wiki_plugin.Path.exists")
+@patch("plugins.wiki_plugin.console.print")
+def test_wiki_save_uses_last_assistant_message(
+    mock_print,
+    mock_exists,
+    mock_mkdir,
+    mock_write_text,
+    mock_index,
+    wiki_plugin,
+):
+    """/wiki save son assistant mesajını dosyaya yazmalıdır."""
+    mock_exists.return_value = False
+    context = {
+        "history": [
+            {"role": "user", "text": "şablon üret"},
+            {"role": "assistant", "text": "Yeni Sayfa İçeriği"},
+        ]
+    }
+
+    wiki_plugin._cmd_wiki(["save", "yeni_sayfa.md", "Sayfa Başlığı"], context)
+
+    assert mock_mkdir.called
+    assert mock_write_text.called
+    content = mock_write_text.call_args.args[0]
+    assert "# Sayfa Başlığı" in content
+    assert "Yeni Sayfa İçeriği" in content
+    assert mock_index.called
+    assert mock_print.called
+
+
+@patch("plugins.wiki_plugin.Path.write_text")
+@patch("plugins.wiki_plugin.console.print")
+def test_wiki_save_requires_assistant_message(
+    mock_print,
+    mock_write_text,
+    wiki_plugin,
+):
+    """Asistan mesajı yoksa /wiki save hata vermeli ve yazmamalıdır."""
+    context = {
+        "history": [
+            {"role": "user", "text": "tamam şablonu kaydet"},
+        ]
+    }
+
+    wiki_plugin._cmd_wiki(["save", "bos.md"], context)
+
+    assert not mock_write_text.called
+    error = any(
+        "Son asistan yanıtı bulunamadı" in str(c)
+        for c in mock_print.call_args_list
+    )
+    assert error

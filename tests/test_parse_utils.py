@@ -21,6 +21,7 @@ parse_settings_args = parse_utils.parse_settings_args
 parse_search_args = parse_utils.parse_search_args
 parse_plugin_args = parse_utils.parse_plugin_args
 parse_export_args = parse_utils.parse_export_args
+parse_natural_language_command = parse_utils.parse_natural_language_command
 
 
 def test_parse_command_string_basic():
@@ -155,6 +156,105 @@ def test_parse_export_args_empty():
     assert filename is None
 
 
+def test_parse_natural_language_plugins_list_tr():
+    """TR doğal dil plugin liste isteği /plugins'e map edilmelidir."""
+    result = parse_natural_language_command("plugin listesini yazdır")
+    assert result == ("plugins", [])
+
+
+def test_parse_natural_language_plugins_available_tr():
+    """TR doğal dil mevcut plugin isteği /plugins-available olmalıdır."""
+    result = parse_natural_language_command("mevcut eklentileri listele")
+    assert result == ("plugins-available", [])
+
+
+def test_parse_natural_language_help_run_tr():
+    """TR doğal dil help çalıştırma isteği /help'e map edilmelidir."""
+    result = parse_natural_language_command("help komutunu çalıştır")
+    assert result == ("help", [])
+
+
+def test_parse_natural_language_regular_chat_returns_none():
+    """Normal sohbet içeriği komut olarak algılanmamalıdır."""
+    result = parse_natural_language_command(
+        "chat-cli local de çalışan bir chat programıdır"
+    )
+    assert result is None
+
+
+def test_parse_natural_language_quoted_slash_help_tr():
+    """Tırnaklı '/help' çalıştırma isteği /help'e map edilmelidir."""
+    result = parse_natural_language_command("'/help' komutunu çalıştır")
+    assert result == ("help", [])
+
+
+def test_parse_natural_language_explicit_plugins_available_command():
+    """Açık /plugins-available komut referansı doğru map edilmelidir."""
+    result = parse_natural_language_command(
+        "lütfen /plugins-available komutunu çalıştır"
+    )
+    assert result == ("plugins-available", [])
+
+
+def test_parse_natural_language_only_slash_help_mention():
+    """Tek başına /help referansı doğal komut niyeti sayılmalıdır."""
+    result = parse_natural_language_command(" '/help' ")
+    assert result == ("help", [])
+
+
+def test_parse_natural_language_wiki_phrase_returns_none():
+    """Wiki arama ifadeleri plugin komutu olarak zorla map edilmemelidir."""
+    result = parse_natural_language_command("LLMWiki'de ara ve özetle")
+    assert result is None
+
+
+def test_parse_natural_language_daemon_phrase_returns_none():
+    """Daemon sorguları doğal komut eşleyici tarafından yakalanmamalıdır."""
+    result = parse_natural_language_command(
+        "omni-daemon bağlantısını kontrol et"
+    )
+    assert result is None
+
+
+def test_parse_natural_language_embedded_wiki_add_command():
+    """Cümle içinde geçen /wiki add komutu parse edilmelidir."""
+    result = parse_natural_language_command(
+        (
+            "Verilen örnek ile bir şablon oluştur "
+            "/wiki add yeni_sayfa.md \"Sayfa Başlığı\" Bu sayfa"
+        )
+    )
+    assert result == (
+        "wiki",
+        ["add", "yeni_sayfa.md", "Sayfa Başlığı", "Bu", "sayfa"],
+    )
+
+
+def test_parse_natural_language_embedded_wiki_save_command():
+    """Cümle içinde geçen /wiki save komutu parse edilmelidir."""
+    result = parse_natural_language_command(
+        (
+            "tamam şimdi /wiki save yeni_sayfa.md "
+            "\"Sayfa Başlığı\" komutunu çalıştır"
+        )
+    )
+    assert result == (
+        "wiki",
+        ["save", "yeni_sayfa.md", "Sayfa Başlığı", "komutunu", "çalıştır"],
+    )
+
+
+def test_parse_natural_language_bare_wiki_add_command():
+    """Başta kullanılan wiki add formu da komut olarak algılanmalıdır."""
+    result = parse_natural_language_command(
+        "wiki add yeni_sayfa.md \"Sayfa Başlığı\" İçerik"
+    )
+    assert result == (
+        "wiki",
+        ["add", "yeni_sayfa.md", "Sayfa Başlığı", "İçerik"],
+    )
+
+
 if __name__ == "__main__":
     # Run tests
     import sys
@@ -179,6 +279,18 @@ if __name__ == "__main__":
         test_parse_export_args_full,
         test_parse_export_args_format_only,
         test_parse_export_args_empty,
+        test_parse_natural_language_plugins_list_tr,
+        test_parse_natural_language_plugins_available_tr,
+        test_parse_natural_language_help_run_tr,
+        test_parse_natural_language_regular_chat_returns_none,
+        test_parse_natural_language_quoted_slash_help_tr,
+        test_parse_natural_language_explicit_plugins_available_command,
+        test_parse_natural_language_only_slash_help_mention,
+        test_parse_natural_language_wiki_phrase_returns_none,
+        test_parse_natural_language_daemon_phrase_returns_none,
+        test_parse_natural_language_embedded_wiki_add_command,
+        test_parse_natural_language_embedded_wiki_save_command,
+        test_parse_natural_language_bare_wiki_add_command,
     ]
 
     failed = 0

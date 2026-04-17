@@ -2,10 +2,6 @@ from __future__ import annotations
 
 import copy
 import shlex
-import re
-import sys
-import io
-
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -13,16 +9,32 @@ from typing import List
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.live import Live
-from rich.console import Group
 
 import ui as ui_mod
 import analytics
+from lib.agent_orchestrator import AgentOrchestrator
+from lib.command_executor import execute_command, CommandContext
+from lib.parse_utils import parse_run_args
+from lib.system_prompt_manager import SystemPromptManager
+from lib.plugin_executor import (
+    PluginCommandExecutor,
+    PluginExecutionContext,
+)
 import lib.history as history_mod
 import lib.ollama_wrapper as ow
 from lib.plugin_registry import PluginManager
 
-from services.settings_service import determine_base_url, load_config, save_config
-from services.models_service import list_models, set_current_model, load_model, delete_model
+from services.settings_service import (
+    determine_base_url,
+    load_config,
+    save_config,
+)
+from services.models_service import (
+    list_models,
+    set_current_model,
+    load_model,
+    delete_model,
+)
 from ui.settings_menus import settings_menu
 
 # Enhanced input handler loading
@@ -43,25 +55,6 @@ except Exception as e:
 
 CURRENT_MODEL: str | None = None
 
-AGENT_PROMPT = """
-You are an autonomous AI Agent. You can ONLY execute local chat-cli internal plugin commands.
-To execute an internal command, output exactly this syntax and nothing else:
-<call_cmd>/command_name args</call_cmd>
-
-Examples of calling tools:
-<call_cmd>/wiki search concept</call_cmd>
-<call_cmd>/help</call_cmd>
-<call_cmd>/list</call_cmd>
-
-CRITICAL RULES:
-1. You MUST ONLY use internal slash commands starting with '/'.
-2. If the user asks you to list commands, run a tool, or use a command (e.g. "run /help"), YOU MUST output the <call_cmd> tags immediately! Do not type out fake responses.
-3. Access real-time command tools. Use EXACTLY the following available commands when you need to act:
-{AVAILABLE_COMMANDS}
-4. Do NOT output JSON format for tools (e.g. {"tool": "run_command", ...}). JSON tool calls are NOT supported and will fail. ONLY use the XML-style <call_cmd> tags!
-
-The system will run the command, pause your generation, and append the output to the chat history. You must then continue answering based on the output.
-"""
 
 def sanitize_prompt(s: str) -> str:
     """Remove slash commands and traceback noise from prompt."""
@@ -100,6 +93,132 @@ def _parse_run_args(args: List[str]) -> tuple[str | None, str | None]:
     if prompt is None and len(parts) > 1:
         prompt = " ".join(parts[1:])
     return model, prompt
+
+
+def execute_user_command(
+    command: str,
+    args: list[str],
+    ctx: CommandContext,
+    history: list,
+    hpath: Path,
+) -> tuple[bool, bool]:
+    """
+    Execute a user slash command through the unified executor.
+
+    Args:
+        command: Command name (without slash)
+        args: Command arguments
+        ctx: Execution context
+        history: Chat history list (may be modified by handlers)
+        hpath: History file path
+
+    Returns:
+        Tuple of (should_continue_repl, was_handled)
+        - should_continue_repl: Whether to continue REPL loop (False on /exit)
+        - was_handled: Whether command was recognized and executed
+    """
+    global CURRENT_MODEL, active_base_url
+
+    # Special case: /exit and /quit require direct handling
+    if command in ("exit", "quit"):
+        last_assistant = None
+        for item in reversed(history):
+            if item.get("role") == "assistant" and item.get("text"):
+                last_assistant = item.get("text")
+                break
+        if last_assistant:
+            ui_mod.console.print(
+                Panel(
+                    Markdown(last_assistant),
+                    title="Last assistant reply",
+                    expand=True,
+                )
+            )
+        ui_mod.console.print(
+            "\nExiting via slash command. Saving history..."
+        )
+        history_mod.save_history(history, hpath)
+        return False, True  # Exit REPL, was handled
+
+    # Special case: /run has complex interactive logic
+    if command == "run":
+        model_arg, prompt_arg = parse_run_args(args)
+        if model_arg:
+            CURRENT_MODEL = model_arg
+        if not prompt_arg:
+            if not CURRENT_MODEL:
+                ui_mod.console.print("[red]No model selected.[/red]")
+                ui_mod.console.print(
+                    "[yellow]Use `/run <model> <prompt>` "
+                    "or /load <model>` to set default.[/yellow]"
+                )
+                return True, True
+
+            prompt_arg = input(f"Prompt for '{CURRENT_MODEL}': ")
+
+        model_to_use = CURRENT_MODEL
+        if not model_to_use:
+            ui_mod.console.print("[red]No model selected.[/red]")
+            return True, True
+
+        prompt_arg = sanitize_prompt(prompt_arg)
+        try:
+            gen = ow.generate_stream(model_to_use, prompt_arg)
+            buffer = ""
+            panel = Panel(
+                Markdown(buffer),
+                title=f"run {model_to_use} (stream)",
+                expand=True,
+            )
+            with Live(
+                panel, console=ui_mod.console, refresh_per_second=6
+            ) as live:
+                for chunk in gen:
+                    buffer += (
+                        chunk if isinstance(chunk, str) else str(chunk)
+                    )
+                    panel = Panel(
+                        Markdown(buffer),
+                        title=f"run {model_to_use} (stream)",
+                        expand=True,
+                    )
+                    live.update(panel)
+        except Exception as e:
+            ui_mod.console.print(Panel(f"Error: {e}", title="ollama"))
+        return True, True
+
+    # Try unified command executor
+    result = execute_command(command, args, ctx)
+
+    # If command was not found, indicate it wasn't handled
+    if "Unknown command" in (result.error or ""):
+        return True, False  # Continue REPL, was not handled
+
+    # Display result
+    if result.success:
+        if result.output:
+            ui_mod.console.print(result.output)
+    else:
+        if result.error:
+            ui_mod.console.print(f"[red]Error: {result.error}[/red]")
+
+    # Apply state changes
+    if result.state_changes:
+        if "current_model" in result.state_changes:
+            CURRENT_MODEL = result.state_changes["current_model"]
+        if "config" in result.state_changes:
+            new_cfg = result.state_changes["config"]
+            if result.requires_reload:
+                # /settings changed base_url
+                new_base_url = determine_base_url(new_cfg, None)
+                if new_base_url != active_base_url:
+                    ow.init_client(new_base_url)
+                    active_base_url = new_base_url
+        if "history_reloaded" in result.state_changes:
+            # History was reloaded, continue normally
+            pass
+
+    return True, True  # Continue REPL, was handled
 
 
 def _format_colored_status(prefix: str, value: str) -> str:
@@ -189,7 +308,18 @@ def run_chat(
         # Load persona from config if available
         if config.get("persona", {}).get("current_persona"):
             persona_id = config["persona"]["current_persona"]
-            plugin_manager.execute_command("persona", ["set", persona_id], {"chat_context": chat_context})
+            # Use plugin executor for isolated execution
+            plugin_exec = PluginCommandExecutor(plugin_manager)
+            plugin_ctx = (
+                PluginExecutionContext()
+                .with_chat_context(chat_context)
+                .build()
+            )
+            plugin_exec.execute_startup_plugin(
+                "persona",
+                ["set", persona_id],
+                plugin_ctx,
+            )
 
     try:
         while True:
@@ -268,7 +398,7 @@ def run_chat(
                     ui_mod.console.print("[green]Deleted[/green]" if ok else "[red]Failed to delete model[/red]")
                     continue
                 elif cmd == "run":
-                    model_arg, prompt_arg = _parse_run_args(args)
+                    model_arg, prompt_arg = parse_run_args(args)
                     if model_arg:
                         CURRENT_MODEL = model_arg
                     if not prompt_arg:
@@ -479,6 +609,9 @@ def run_chat(
                                     )
                                 )
                                 history.clear()
+                                chat_context.clear()
+                                config["current_session_id"] = new_session_id
+                                save_config(config)
                             elif choice == "2":
                                 sessions = history_mod.list_sessions()
                                 if not sessions:
@@ -493,6 +626,9 @@ def run_chat(
                                 if new_history != []:
                                     history.clear()
                                     history.extend(new_history)
+                                    chat_context.clear()
+                                    config["current_session_id"] = session_id
+                                    save_config(config)
                                     ui_mod.console.print(
                                         _format_colored_status(
                                             "[green]✓ Switched to session:[/green]",
@@ -542,6 +678,9 @@ def run_chat(
                                 )
                             )
                             history.clear()
+                            chat_context.clear()
+                            config["current_session_id"] = new_session_id
+                            save_config(config)
                         elif sub_cmd == "list":
                             sessions = history_mod.list_sessions()
                             if not sessions:
@@ -557,6 +696,9 @@ def run_chat(
                                 if new_history != []:
                                     history.clear()
                                     history.extend(new_history)
+                                    chat_context.clear()
+                                    config["current_session_id"] = session_id
+                                    save_config(config)
                                     ui_mod.console.print(
                                         f"[green]✓ Switched to session:[/green] "
                                         f"[white]{session_id}[/white]"
@@ -600,7 +742,29 @@ def run_chat(
                         ui_mod.console.print("[dim]Available themes:[/dim] [cyan]default, dark, light[/cyan]")
                     continue
                 else:
-                    context = {
+                    # Try unified command executor for built-in commands
+                    ctx = CommandContext(
+                        history=history,
+                        current_model=CURRENT_MODEL,
+                        plugin_manager=plugin_manager,
+                        config=config,
+                        analytics_manager=analytics_manager,
+                        ui_mod=ui_mod,
+                        ollama_wrapper=ow,
+                        chat_context=chat_context,
+                    )
+                    should_continue, was_handled = execute_user_command(
+                        cmd, args, ctx, history, hpath
+                    )
+                    if not should_continue:
+                        # /exit was called
+                        return
+                    if was_handled:
+                        # Command was processed, continue loop
+                        continue
+
+                    # Fallback: try plugin command
+                    legacy_context = {
                         "history": history,
                         "current_model": CURRENT_MODEL,
                         "analytics_manager": analytics_manager,
@@ -609,284 +773,44 @@ def run_chat(
                         "chat_context": chat_context,
                         "config": config,
                     }
-                    if plugin_manager.execute_command(cmd, args, context):
+                    if plugin_manager.execute_command(
+                        cmd, args, legacy_context
+                    ):
                         continue
-                    ui_mod.console.print(f"[yellow]Unknown slash command:[/yellow] {cmd}")
+                    ui_mod.console.print(
+                        f"[yellow]Unknown slash command:[/yellow] {cmd}"
+                    )
                     continue
 
             history.append({"role": "user", "text": prompt})
 
-            agent_running = True
-            while agent_running:
-                agent_running = False
-
-                if stream:
-                    parts: List[str] = []
-                    buffer = ""
-                    char_count = 0
-                    route_label = ui_mod.get_active_route_label(
-                        history,
-                        CURRENT_MODEL,
-                    )
-                    model_status = (
-                        f"🤖 {CURRENT_MODEL or 'Unknown'} ({route_label})"
-                    )
-                    ui_mod.console.print(f"[blue]{model_status}[/blue]")
-
-                    # Build a single Live with both the panel and progress to avoid flicker
-                    progress = ui_mod.create_progress_tracker()
-                    task = progress.add_task("Generating response...", total=100)
-
-                    import time
-                    last_update_time = 0
-                    update_frequency = 0.1  # Update every 100ms max or every 15 chunks
-                    chunk_counter = 0
-
-                    panel = Panel(Markdown(buffer), title="Assistant (streaming)", expand=True)
-                    renderable = Group(panel, progress)
-
-                    with Live(renderable, console=ui_mod.console, refresh_per_second=8) as live:
-                        system_message = config.get("system_message", "")
-                        if persona_plugin and chat_context.get("persona_prompt"):
-                            system_message = chat_context["persona_prompt"]
-                        # Inject agent prompt with descriptions
-                        builtin_cmds = {
-                            "/list": "List all loaded plugins and their commands",
-                            "/models": "List available Ollama models",
-                            "/help": "Show help for commands",
-                            "/plugins": "Manage (load/unload/list) plugins"
-                        }
-                        plugin_cmds = plugin_manager.get_all_commands()
-                        
-                        # Combine and format
-                        all_cmds = {**builtin_cmds}
-                        for cmd, desc in plugin_cmds.items():
-                            all_cmds[f"/{cmd}"] = desc
-                            
-                        cmds_help = "\n".join([f"- {cmd}: {desc}" for cmd, desc in all_cmds.items()])
-                        dynamic_agent_prompt = AGENT_PROMPT.replace("{AVAILABLE_COMMANDS}", cmds_help)
-                        system_message += "\n" + dynamic_agent_prompt
-                        for chunk in ui_mod.get_model_reply_stream(
-                            history,
-                            max_tokens=max_context_tokens,
-                            max_output_chars=max_output_chars,
-                            system_message=system_message,
-                            model_name=CURRENT_MODEL,
-                        ):
-                            parts.append(chunk)
-                            buffer = "".join(parts)
-                            char_count += len(chunk)
-                            chunk_counter += 1
-                            
-                            progress.update(task, advance=min(len(chunk) * 2, 8))
-                            
-                            # Throttled update
-                            current_time = time.time()
-                            if chunk_counter >= 15 or (current_time - last_update_time) >= update_frequency:
-                                try:
-                                    # Create Markdown once for current buffer
-                                    md_content = Markdown(buffer)
-                                    panel = Panel(md_content, title="Assistant (streaming)", expand=True)
-                                    live.update(Group(panel, progress))
-                                    last_update_time = current_time
-                                    chunk_counter = 0
-                                except Exception:
-                                    # Fallback to plain text if Markdown parsing fails (e.g. half-table)
-                                    # This avoids terminal artifacts/ghosting
-                                    pass
-
-                            # Early exit if tag completed (naive check to speed up macro)
-                            if "</call_cmd>" in buffer:
-                                break
-                        # complete and render final
-                        progress.update(task, completed=100)
-                        live.update(Group(Panel(Markdown(buffer), title="Assistant", expand=True), progress))
-
-                    estimated_tokens = char_count // 4
-                    
-                    # Gerçek gönderilen token sayısını daha doğru tahmin et (trim edilmiş geçmişe göre)
-                    trimmed_history = history_mod.trim_history_for_tokens(history, max_tokens=max_context_tokens)
-                    context_text = system_message + " ".join(
-                        str(item.get("text") or item.get("output", "")) 
-                        for item in trimmed_history
-                    )
-                    total_prompt_tokens = history_mod.estimate_tokens(context_text)
-                    
-                    ui_mod.display_token_usage(
-                        prompt_tokens=total_prompt_tokens,
-                        response_tokens=estimated_tokens,
-                        max_tokens=max_context_tokens,
-                    )
-                    reply = "".join(parts)
-                    ui_mod.console.print()
-                else:
-                    system_message = config.get("system_message", "")
-                    if persona_plugin and chat_context.get("persona_prompt"):
-                        system_message = chat_context["persona_prompt"]
-                    builtin_cmds = {
-                        "/list": "List all loaded plugins and their commands",
-                        "/models": "List available Ollama models",
-                        "/help": "Show help for commands",
-                        "/plugins": "Manage (load/unload/list) plugins"
-                    }
-                    plugin_cmds = plugin_manager.get_all_commands()
-                    
-                    all_cmds = {**builtin_cmds}
-                    for cmd, desc in plugin_cmds.items():
-                        all_cmds[f"/{cmd}"] = desc
-                        
-                    cmds_help = "\n".join([f"- {cmd}: {desc}" for cmd, desc in all_cmds.items()])
-                    dynamic_agent_prompt = AGENT_PROMPT.replace("{AVAILABLE_COMMANDS}", cmds_help)
-                    system_message += "\n" + dynamic_agent_prompt
-                    reply = ui_mod.get_model_reply_sync(
-                        history,
-                        max_tokens=max_context_tokens,
-                        max_output_chars=max_output_chars,
-                        system_message=system_message,
-                        model_name=CURRENT_MODEL,
-                    )
-
-                # --- AGENTIC MACRO CHECK ---
-                # Find ALL <call_cmd>...</call_cmd> blocks; only accept ones whose
-                # content starts with '/' (genuine slash commands). The model may
-                # include the literal text "<call_cmd>" in its reasoning prose, so
-                # a naive first-match regex can capture garbled text. We pick the
-                # *last* valid match to handle models that explain before acting.
-                # Pattern requires capture group to start with '/' so that prose
-                # mentions like "output in <call_cmd> tags" are never mistaken
-                # for real commands (they'd match the unclosed tag and swallow
-                # everything up to the only closing tag in the text).
-                all_matches = re.findall(
-                    r"<call_cmd>\s*(/[^<]*?)\s*</call_cmd>",
-                    reply,
-                    re.DOTALL | re.IGNORECASE,
-                )
-                valid_matches = [m.strip() for m in all_matches if m.strip()]
-                invalid_all = re.findall(
-                    r"<call_cmd>\s*(.*?)\s*</call_cmd>",
-                    reply,
-                    re.DOTALL | re.IGNORECASE,
-                )
-                invalid_matches = [m.strip() for m in invalid_all if not m.strip().startswith("/")]
-
-                if invalid_matches:
-                    ui_mod.console.print(
-                        f"[dim yellow]⚠️  Agent ignored {len(invalid_matches)} non-command <call_cmd> block(s) in reply.[/dim yellow]"
-                    )
-
-                cmd_match_str = valid_matches[-1] if valid_matches else None
-                # Reconstruct full_match for history cleanup (use the actual raw match)
-                raw_full_match = None
-                if cmd_match_str:
-                    # Re-locate the matching raw block for the chosen cmd
-                    raw_search = re.search(
-                        r"<call_cmd>\s*" + re.escape(cmd_match_str) + r"\s*</call_cmd>",
-                        reply,
-                        re.DOTALL | re.IGNORECASE,
-                    )
-                    raw_full_match = raw_search.group(0) if raw_search else f"<call_cmd>{cmd_match_str}</call_cmd>"
-
-                if cmd_match_str:
-                    full_match = raw_full_match
-                    cmd_str = cmd_match_str
-                    # Sanitize: strip stray '>' chars the model sometimes
-                    # appends (e.g. <call_cmd>/list></call_cmd>)
-                    cmd_str = cmd_str.rstrip("> ").strip()
-                    ui_mod.console.print(f"\n[bold magenta]🛠️ Agent Executing:[/bold magenta] [cyan]{cmd_str}[/cyan]")
-                    
-                    clean_reply = reply.replace(full_match, "").strip()
-                    if clean_reply:
-                        history.append({"role": "assistant", "text": clean_reply + f"\n[Agent Executed: {cmd_str}]"})
-                    else:
-                        history.append({"role": "assistant", "text": f"[Agent Executed: {cmd_str}]"})
-                    
-                    # Capture stdout
-                    cap_buffer = io.StringIO()
-                    old_stdout = sys.stdout
-                    sys.stdout = cap_buffer
-                    
-                    try:
-                        if cmd_str.startswith("!"):
-                            print("Error: Shell commands (!) are strictly forbidden for the Agent. Please use only / slash commands.")
-                        else:
-                            # Parse command and args
-                            try:
-                                c_parts = shlex.split(cmd_str)
-                                c_cmd = c_parts[0]
-                                c_args = c_parts[1:]
-                            except Exception:
-                                c_cmd = cmd_str.split()[0]
-                                c_args = cmd_str.split()[1:]
-
-                            if c_cmd.startswith("/"):
-                                c_cmd = c_cmd[1:]
-
-                            context = {
-                                "history": history,
-                                "current_model": CURRENT_MODEL,
-                                "analytics_manager": analytics_manager,
-                                "ui_mod": ui_mod,
-                                "ollama_wrapper": ow,
-                                "chat_context": chat_context,
-                                "config": config,
-                            }
-                            if not plugin_manager.execute_command(c_cmd, c_args, context):
-                                # Fallback routing for built-in loop commands
-                                if c_cmd in ("list", "models"):
-                                    models = list_models()
-                                    if not models:
-                                        print("No models available.")
-                                    else:
-                                        print("Available Models:")
-                                        for m in models:
-                                            print(f"- {m}")
-                                elif c_cmd in ("help", "h"):
-                                    plugin_cmds = ", ".join(
-                                        f"/{cmd}" for cmd in plugin_manager.get_all_commands().keys()
-                                    )
-                                    print("Built-in commands: /list, /models, /help, /plugins")
-                                    print(f"Plugin commands: {plugin_cmds or '(none loaded)'}")
-                                elif c_cmd == "plugins":
-                                    plugin_manager.list_plugins()
-                                else:
-                                    print(f"Error: Unknown internal command '{c_cmd}'. Terminal tools like python, bash, sh are FORBIDDEN! Only use loaded plugin commands (e.g. /list, /wiki list).")
-                    except Exception as e:
-                        print(f"Execution failed: {e}")
-                    finally:
-                        sys.stdout = old_stdout
-                    
-                    ext_out = cap_buffer.getvalue().strip()
-                    if not ext_out:
-                        ext_out = "Command executed successfully (no text output returned to stdout)."
-                        
-                    ui_mod.console.print(f"[dim]{ext_out[:200]}{'...' if len(ext_out)>200 else ''}[/dim]\n")
-                    history.append({"role": "system", "text": f"Agent Command Output:\n{ext_out}"})
-                    agent_running = True
-                else:
-                    # Intercept hallucinated JSON tools
-                    import json
-                    json_tool_match = False
-                    try:
-                        clean_reply = reply.strip()
-                        # Quick check if it looks like a JSON block
-                        if clean_reply.startswith("{") and clean_reply.endswith("}"):
-                            data = json.loads(clean_reply)
-                            if isinstance(data, dict) and any(k in data for k in ["tool", "command", "action", "name"]):
-                                tool_name = data.get("tool") or data.get("command") or data.get("action") or data.get("name") or "unknown_tool"
-                                json_tool_match = True
-                                history.append({"role": "assistant", "text": reply})
-                                ui_mod.console.print(f"\n[bold red]⚠️ Agent hallucinated JSON Tool:[/bold red] [white]{tool_name}[/white]")
-                                err_msg = "System Error: JSON tools are NOT supported here. You hallucinated a payload. Use `<call_cmd>/command_name args</call_cmd>` to execute internal commands. Do NOT use JSON."
-                                history.append({"role": "system", "text": err_msg})
-                                ui_mod.console.print(f"[dim]{err_msg}[/dim]\n")
-                                agent_running = True
-                    except Exception:
-                        pass
-                    
-                    if not json_tool_match:
-                        if not stream:
-                            ui_mod.render_markdown(reply)
-                        history.append({"role": "assistant", "text": reply})
+            # Create and run agent orchestrator
+            # Build system message with persona and agent policy
+            base_msg = config.get("system_message", "")
+            prompt_mgr = SystemPromptManager(
+                base_message=base_msg,
+                persona_provider=persona_plugin,
+            )
+            plugin_cmds = plugin_manager.get_all_commands()
+            system_message = prompt_mgr.build_system_message(
+                for_agent=True,
+                command_registry=plugin_cmds,
+                persona_prompt=chat_context.get("persona_prompt"),
+            )
+            orchestrator = AgentOrchestrator(
+                history=history,
+                current_model=CURRENT_MODEL,
+                config=config,
+                plugin_manager=plugin_manager,
+                analytics_manager=analytics_manager,
+                ui_mod=ui_mod,
+                ollama_wrapper=ow,
+                chat_context=chat_context,
+                max_context_tokens=max_context_tokens,
+                max_output_chars=max_output_chars,
+                stream=stream,
+            )
+            orchestrator.run(system_message)
 
     except KeyboardInterrupt:
         ui_mod.console.print("\nExiting. Saving history...")

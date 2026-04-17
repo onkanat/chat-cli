@@ -1,9 +1,3 @@
-/wiki search R-2R DAC
-/wiki search R-2R DAC devresi
-/wiki search 8bit R-2R DAC devresi
-/wiki search 8bit R-2R DAC lather devresi
-/wiki
-/wiki lint
 /wiki
 /wiki search R-2R lather DAC konvertör.
 /wiki list
@@ -19,4 +13,8 @@ report_R-2R_DAC_Teknolojisi_ve_Gömülü_Sistem özetle.
 /plugins-available
 /distill help
 /distill status
+/quit
+/persona reload
+/quit
+/persona
 /quit

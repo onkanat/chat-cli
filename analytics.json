@@ -863,6 +863,38 @@
       "messages": 0,
       "tokens": 0,
       "commands": []
+    },
+    {
+      "id": "20260417_141622",
+      "start_time": "2026-04-17T14:16:22.190588",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_141729",
+      "start_time": "2026-04-17T14:17:29.377352",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_141836",
+      "start_time": "2026-04-17T14:18:36.792828",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
+    },
+    {
+      "id": "20260417_151330",
+      "start_time": "2026-04-17T15:13:30.085781",
+      "model": "qwen3.5:9b",
+      "messages": 0,
+      "tokens": 0,
+      "commands": []
     }
   ],
   "total_messages": 0,
@@ -887,7 +919,7 @@
     "plugin-load": 3,
     "plugin-info": 2,
     "/persona": 1,
-    "persona": 29,
+    "persona": 32,
     "new_session": 50,
     "load_history": 2,
     "exit": 13,
@@ -897,7 +929,7 @@
     "suggest": 7,
     "pull": 21,
     "models": 12,
-    "quit": 76,
+    "quit": 79,
     "calc": 14,
     "file": 14,
     "personas": 4,

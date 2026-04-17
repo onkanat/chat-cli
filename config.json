@@ -17,7 +17,7 @@
   },
   "persona": {
     "current_persona": "assistant",
-    "last_updated": "2026-04-16T20:40:33.950731+00:00"
+    "last_updated": "2026-04-17T12:13:30.087483+00:00"
   },
   "generation_route": "auto",
   "fallback_to_direct_on_error": true,

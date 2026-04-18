@@ -105,6 +105,8 @@ class WikiPlugin(PluginBase):
             "list": self._cmd_list,
             "ingest": self._cmd_ingest,
             "ingest-session": self._cmd_ingest_session,
+            "promote-session": self._cmd_promote_session,
+            "metrics": self._cmd_metrics,
             "lint": self._cmd_lint,
             "help": self._cmd_help,
         }
@@ -349,6 +351,87 @@ date: {datetime.now().isoformat()}
             )
         except Exception as e:
             console.print(f"[red]Daemon'dan lint raporu alınamadı veya bağlantı koptu: {e}[/red]")
+
+    def _cmd_metrics(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Show wiki quality metrics from omni-daemon."""
+        url = self._base_url() + "/api/v1/wiki/quality-metrics"
+        timeout = self._cfg.get("request_timeout", 30)
+        try:
+            resp = httpx.get(url, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.ConnectError:
+            console.print(
+                f"[red]Cannot connect to omni-daemon at {self._base_url()}[/red]"
+            )
+            return
+        except httpx.TimeoutException:
+            console.print(
+                f"[yellow]⏱ /wiki/quality-metrics isteği zaman aşımına uğradı "
+                f"(timeout={timeout}s).[/yellow]"
+            )
+            return
+        except Exception as e:
+            console.print(f"[red]Kalite metrikleri alınamadı:[/red] {e}")
+            return
+
+        graph = data.get("graph") or {}
+        links = data.get("link_integrity") or {}
+        stubs = data.get("stub_quality") or {}
+        recommendations = data.get("recommendations") or []
+        score = float(data.get("quality_score") or 0.0)
+
+        table = Table(
+            title=f"📏 Wiki Quality Metrics (Score: {score:.2f}/100)",
+            show_header=True,
+            header_style="bold blue",
+        )
+        table.add_column("Kategori", style="cyan")
+        table.add_column("Metric", style="green")
+        table.add_column("Değer", style="white")
+
+        table.add_row("Graph", "total_pages", str(graph.get("total_pages", 0)))
+        table.add_row("Graph", "orphan_pages", str(graph.get("orphan_pages", 0)))
+        table.add_row("Graph", "avg_links", str(graph.get("avg_links", 0.0)))
+
+        table.add_row("Links", "total_links", str(links.get("total_links", 0)))
+        table.add_row(
+            "Links",
+            "unresolved_links",
+            str(links.get("unresolved_links", 0)),
+        )
+        table.add_row(
+            "Links",
+            "unresolved_ratio",
+            str(links.get("unresolved_ratio", 0.0)),
+        )
+
+        table.add_row("Stubs", "total_stubs", str(stubs.get("total_stubs", 0)))
+        table.add_row("Stubs", "needs_review", str(stubs.get("needs_review", 0)))
+        table.add_row(
+            "Stubs",
+            "needs_review_rate",
+            str(stubs.get("needs_review_rate", 0.0)),
+        )
+        table.add_row(
+            "Stubs",
+            "avg_confidence",
+            str(stubs.get("avg_confidence", 0.0)),
+        )
+
+        console.print(table)
+
+        if isinstance(recommendations, list) and recommendations:
+            suggestion_lines = "\n".join(
+                f"- {str(item)}" for item in recommendations
+            )
+            console.print(
+                Panel(
+                    suggestion_lines,
+                    title="İyileştirme Önerileri",
+                    expand=True,
+                )
+            )
 
     def _cmd_pin(self, args: List[str], context: Dict[str, Any]) -> None:
         if not args:
@@ -755,6 +838,71 @@ date: {datetime.now().isoformat()}
             "[dim]💡 Eğitim verisi üretmek için /distill komutunu kullanın.[/dim]"
         )
 
+    def _cmd_promote_session(self, args: List[str], context: Dict[str, Any]) -> None:
+        """Promote a session wiki into global wiki folders.
+
+        Usage:
+          /wiki promote-session <session_id>
+          /wiki promote-session <session_id> --overwrite
+        """
+        if not args:
+            console.print(
+                "[yellow]Usage: /wiki promote-session <session_id> [--overwrite][/yellow]"
+            )
+            return
+
+        session_id = args[0].strip()
+        overwrite = any(arg.strip().lower() == "--overwrite" for arg in args[1:])
+        mode = "overwrite" if overwrite else "safe"
+
+        console.print(
+            f"[yellow]🚚 Session promote başlatıldı:[/yellow] "
+            f"[white]{session_id}[/white] [dim](mode={mode})[/dim]"
+        )
+
+        res = self._post(
+            "/wiki/promote-session",
+            {
+                "session_id": session_id,
+                "mode": mode,
+            },
+        )
+        if res is None:
+            return
+
+        if not res.get("ok"):
+            reason = res.get("reason") or "unknown_error"
+            console.print(f"[red]Promote başarısız:[/red] {reason}")
+            return
+
+        promoted = int(res.get("promoted_count") or 0)
+        skipped = int(res.get("skipped_count") or 0)
+        conflicts = int(res.get("conflict_count") or 0)
+        session_path = res.get("session_wiki_path") or "-"
+
+        console.print(
+            "[bold green]✓ Session global wiki'ye promote edildi.[/bold green]"
+        )
+        console.print(f"[dim]  Session: {session_id}[/dim]")
+        console.print(f"[dim]  Path: {session_path}[/dim]")
+        console.print(f"[dim]  Promoted: {promoted} | Skipped: {skipped} | Conflicts: {conflicts}[/dim]")
+
+        if conflicts > 0:
+            conflict_files = res.get("conflict_files") or []
+            sample = ", ".join(conflict_files[:5])
+            if sample:
+                console.print(
+                    f"[yellow]Çakışma örnekleri:[/yellow] {sample}"
+                )
+                if len(conflict_files) > 5:
+                    console.print(
+                        f"[dim]... +{len(conflict_files) - 5} dosya daha[/dim]"
+                    )
+
+        # Re-index asynchronously so new global files become searchable.
+        if promoted > 0:
+            self._api_wiki_index()
+
     def _cmd_help(self, args: List[str], context: Dict[str, Any]) -> None:
         table = Table(title="📚 Wiki Komutları (Omni-Context V2)", show_header=True, header_style="bold blue")
         table.add_column("Komut", style="cyan")
@@ -770,6 +918,8 @@ date: {datetime.now().isoformat()}
         table.add_row("/wiki save", "/wiki save <sayfa> [başlık]", "Son asistan yanıtını yeni sayfa olarak kaydeder")
         table.add_row("/wiki ingest", "/wiki ingest <metin>", "Ham metin notunu wiki'ye ekler (arka planda)")
         table.add_row("/wiki ingest-session", "/wiki ingest-session", "Aktif sohbeti özetleyip wiki'ye ekler (raw/ dump)")
+        table.add_row("/wiki promote-session", "/wiki promote-session <session_id> [--overwrite]", "Session-wiki içeriğini global wiki'ye taşır")
+        table.add_row("/wiki metrics", "/wiki metrics", "Wiki kalite/sınıflandırma metriklerini gösterir")
         table.add_row("/wiki edit", "/wiki edit <sayfa>", "Sayfayı sistem editöründe ($EDITOR) açar")
         table.add_row("/wiki delete", "/wiki delete <sayfa>", "Sayfayı kalıcı olarak siler (Onay ister)")
         table.add_row("/wiki list", "/wiki list", "Wiki dizinindeki tüm sayfaları listeler")

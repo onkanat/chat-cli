@@ -1,20 +1,20 @@
-/kiwix list
-/kiwix
-/kiwix info
-/kiwix open
-/kiwix search
-/kiwix search Fortan 2018 status
+/help
+/wiki
+/load_history
+model
+/model
+/clear
+/help
+/suggest Türkiye coğrafyası büyük şehirleri, sanayi ve ekonomisi.
+Türkiye coğrafyası büyük şehirleri, sanayi ve ekonomisi.
+Bu konu üzerine gidelim. Mekanik/otomotiv: Bursa, Kocaeli, İzmit.
+Deniz araçları için bir konum, harita, navigasyon, otomatik dümen, hava tahmin sistemi geliştirmek için takım kurma ve planlamasını yap.
+8-10 kişi planlanan ekibin görev dağılımını ve takvimi yaz.
+persona listesinden gerekli yeteneklerdeki agentları görevlere dağıt.
+Simüle et bir görev belirle ve mevcut personalar ile görevi durmadan tamamla.
+tamam planı uygula
+dene bakalım neleri yükleyebileceksin
+/wiki
+/wiki ingest-session
 /quit
-/kiwix list
-/kiwix search Fortan 2018 status
-/kiwix search Fortran 2018 status
-/kiwix search Fortran
-/kiwix search fortran
-/kiwix
-/kiwix open c5e67430-1169-f551-e397-913a94028f7e
-/kiwix search fortran 2008 status
-/quit
-/kiwix list
-/kiwix search fortran 2008 status
-/kiwix open c5e67430-1169-f551-e397-913a94028f7e/fortran-2008-status
-Fortran 2008'de desteklenmeyen özellikler nelerdir?
+/wiki ingest-session

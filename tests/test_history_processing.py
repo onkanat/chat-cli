@@ -1,8 +1,8 @@
 from main import (
-    summarize_shell_output,
     _estimate_tokens,
     _trim_history_for_tokens,
     build_model_messages_from_history,
+    summarize_shell_output,
 )
 
 

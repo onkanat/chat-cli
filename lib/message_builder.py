@@ -13,19 +13,19 @@ def _apply_model_profile(
     max_output_chars: int,
 ) -> tuple[int, int, int, int]:
     """Extract and merge profile settings with defaults.
-    
+
     Args:
         profile: Model profile dict (may be None)
         max_tokens: Default max tokens
         max_turns: Default max turns
         max_output_chars: Default max output chars
-        
+
     Returns:
         Tuple of (max_tokens, max_turns, max_output_chars, reserve_for_response)
     """
     if not profile:
         return max_tokens, max_turns, max_output_chars, 512
-    
+
     return (
         profile.get("max_context_tokens", max_tokens),
         profile.get("max_turns", max_turns),
@@ -36,17 +36,17 @@ def _apply_model_profile(
 
 def compress_system_message(full_message: str) -> str:
     """Compress a system message to save tokens.
-    
+
     Extracts the core role/identity from a longer system prompt.
     For example:
     - "You are a senior Python developer with expertise in async programming..."
       → "Senior Python developer"
     - "Sen uzman bir programcısın. Kod yazma..."
       → "Uzman programcı"
-      
+
     Args:
         full_message: Full system prompt
-        
+
     Returns:
         Compressed version (typically 3-10 words)
     """
@@ -82,7 +82,7 @@ def build_prompt_from_history(
     model_name: str | None = None,
 ) -> str:
     """Build text prompt from history for models that use prompt-based API.
-    
+
     Args:
         history: List of conversation history items
         max_turns: Maximum number of turns to include
@@ -90,13 +90,13 @@ def build_prompt_from_history(
         max_output_chars: Maximum chars for shell output
         system_message: Custom system message (optional)
         model_name: Model name for profile-based optimization
-        
+
     Returns:
         Formatted prompt string
     """
     # Import locally to avoid circular dependency
     from lib.history import trim_history_for_tokens
-    
+
     if not history:
         return ""
 
@@ -113,7 +113,7 @@ def build_prompt_from_history(
         reserve_for_response=reserve,
     )
     window = trimmed[-max_turns:]
-    
+
     for item in window:
         role = item.get("role")
         if role == "user":
@@ -163,7 +163,7 @@ def build_messages_from_history(
     compress_system: bool = False,
 ) -> List[Dict[str, str]]:
     """Build messages list from history for models that use messages-based API.
-    
+
     Args:
         history: List of conversation history items
         max_turns: Maximum number of turns to include
@@ -172,13 +172,13 @@ def build_messages_from_history(
         system_message: Custom system message (optional)
         model_name: Model name for profile-based optimization
         compress_system: Whether to compress system message for subsequent turns
-        
+
     Returns:
         List of message dicts with 'role' and 'content' keys
     """
     # Import locally to avoid circular dependency
     from lib.history import trim_history_for_tokens
-    
+
     if not history:
         return []
 
@@ -214,7 +214,7 @@ def build_messages_from_history(
             "content": system_content,
         }
     )
-    
+
     for item in window:
         role = item.get("role")
         if role == "user":
@@ -242,5 +242,5 @@ def build_messages_from_history(
         else:
             text = item.get("text") or item.get("output") or ""
             msgs.append({"role": "user", "content": text})
-    
+
     return msgs

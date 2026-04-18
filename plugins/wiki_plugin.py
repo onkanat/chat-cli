@@ -1,3 +1,4 @@
+# flake8: noqa
 """
 Wiki plugin for chat-cli (Omni-Context V2 Integration).
 

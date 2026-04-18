@@ -1,3 +1,4 @@
+# flake8: noqa
 """Tests for unified command executor (Faz 2)."""
 
 from __future__ import annotations

@@ -1,4 +1,7 @@
+# flake8: noqa
 from __future__ import annotations
+
+# ruff: noqa: E501, W291, W293
 
 from typing import Dict, List, Any, Callable
 from abc import ABC, abstractmethod

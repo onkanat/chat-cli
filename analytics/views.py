@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 from .manager import AnalyticsManager
 

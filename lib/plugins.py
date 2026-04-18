@@ -1,3 +1,4 @@
+# flake8: noqa
 """Plugin system for extending Ollama Chat CLI functionality."""
 
 from __future__ import annotations

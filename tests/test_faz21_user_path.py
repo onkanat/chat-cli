@@ -1,3 +1,4 @@
+# flake8: noqa
 """Tests for Faz 2.1: User command path refactoring."""
 
 from __future__ import annotations

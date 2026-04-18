@@ -1,9 +1,8 @@
-import sys
 import os
+import sys
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
-import threading
-import time
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -24,19 +23,20 @@ sys.modules["rich"] = mock_rich
 for mod in ["console", "panel", "live", "markdown", "table", "text", "progress", "layout", "syntax", "markup"]:
     sys.modules[f"rich.{mod}"] = MagicMock()
 
-import lib.ollama_wrapper as ow
 import lib.history as history_mod
+import lib.ollama_wrapper as ow
 import ui.console as ui_console
-from lib.ollama_wrapper import OllamaError, OllamaAPIError
+from lib.ollama_wrapper import OllamaAPIError, OllamaError
+
 
 class TestOptimizations(unittest.TestCase):
-    
+
     def test_ollama_wrapper_lock(self):
         """Verify thread safety lock is present and used."""
         # This is a basic check that the lock exists
         self.assertTrue(hasattr(ow, '_client_lock'))
         self.assertIsInstance(ow._client_lock, type(threading.Lock()))
-        
+
         # Verify get_client uses lock (conceptually, by checking it doesn't crash)
         client = ow.get_client()
         self.assertIsNotNone(client)
@@ -44,13 +44,13 @@ class TestOptimizations(unittest.TestCase):
     def test_ollama_wrapper_exceptions(self):
         """Verify custom exceptions are defined and raised."""
         self.assertTrue(issubclass(OllamaAPIError, OllamaError))
-        
+
         # Mock the client to raise an exception
         with patch('lib.ollama_wrapper.get_client') as mock_get_client:
             mock_client = MagicMock()
             mock_client.list.side_effect = Exception("API Fail")
             mock_get_client.return_value = mock_client
-            
+
             with self.assertRaises(OllamaAPIError):
                 ow.list_models()
 
@@ -58,15 +58,15 @@ class TestOptimizations(unittest.TestCase):
         """Verify session ID format."""
         # We need to mock generic history list
         history = [{"role": "user", "text": "hi"}]
-        
+
         # We also need to fix SESSIONS_DIR for test to avoid polluting
         with patch('lib.history.SESSIONS_DIR', new=history_mod.Path('/tmp/test_sessions')):
             # ensure dir exists
             if not os.path.exists('/tmp/test_sessions'):
                 os.makedirs('/tmp/test_sessions')
-                
+
             session_id = history_mod.create_new_session(history)
-            
+
             # Check description of ID format: UUID logic
             # It should NOT be just timestamp anymore if I implemented UUID.
             print(f"DEBUG: Session ID: {session_id}")
@@ -88,10 +88,10 @@ class TestOptimizations(unittest.TestCase):
         # Use sleep command to trigger timeout
         result = ui_console.run_shell_command("sleep 2")
         print(f"DEBUG: 'sleep 2' result: {result}")
-        
+
         self.assertNotIn("Error running command", str(result))
         self.assertNotIn("Command timed out", str(result))
-        
+
         # Test sanitization/empty check
         result_empty = ui_console.run_shell_command("   ")
         print(f"DEBUG: empty command result: {result_empty}")

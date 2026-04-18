@@ -2,16 +2,16 @@
 Tests for Kiwix Hotspot Plugin.
 """
 
-import unittest
-from unittest.mock import patch, MagicMock
-import json
 import sys
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from plugins.kiwix_plugin import KiwixPlugin
+
 
 class TestKiwixPlugin(unittest.TestCase):
     def setUp(self):
@@ -38,10 +38,10 @@ class TestKiwixPlugin(unittest.TestCase):
                 raise Exception("Conn Error")
             m.status_code = 200
             return m
-        
+
         mock_get.side_effect = side_effect
         self.plugin._config["fallback_url"] = "http://localhost:9999"
-        
+
         url = self.plugin._get_base_url()
         self.assertEqual(url, "http://localhost:9999")
 
@@ -62,11 +62,11 @@ class TestKiwixPlugin(unittest.TestCase):
         </html>
         """
         text = self.plugin._html_to_text(html)
-        
+
         # Verify script/style removed
         self.assertNotIn("alert(1)", text)
         self.assertNotIn(".css", text)
-        
+
         # Verify tags removed but content kept
         self.assertIn("Title", text)
         self.assertIn("Hello   world!", text) # &nbsp; replaced
@@ -85,7 +85,7 @@ class TestKiwixPlugin(unittest.TestCase):
         mock_get.return_value = mock_resp
 
         self.plugin._cmd_list()
-        
+
         # Check if Table was printed (via mock_print)
         # Table is a rich object, we check if any call contained 'Wikipedia'
         found = False

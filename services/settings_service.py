@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from lib.config import load_config as _load_config_impl, save_config as _save_config_impl
+from lib.config import load_config as _load_config_impl
+from lib.config import save_config as _save_config_impl
 
 
 def load_config() -> Dict[str, Any]:

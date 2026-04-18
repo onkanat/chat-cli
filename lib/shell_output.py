@@ -10,10 +10,10 @@ DEFAULT_MAX_OUTPUT_CHARS = int(
 
 def is_traceback(text: str) -> bool:
     """Check if text appears to be a traceback or error message.
-    
+
     Args:
         text: Text to check for traceback patterns
-        
+
     Returns:
         True if text contains traceback indicators
     """
@@ -61,14 +61,14 @@ def is_traceback(text: str) -> bool:
 
 def is_safe_to_drop(command: str, output: str) -> bool:
     """Check if shell output is informational and can be omitted for model context.
-    
+
     These are commands whose output is visible in terminal and don't need
     to be sent to the model (e.g., ls, cat, echo).
-    
+
     Args:
         command: Shell command that was executed
         output: Command output
-        
+
     Returns:
         True if output can be safely omitted from model context
     """
@@ -93,10 +93,10 @@ def is_safe_to_drop(command: str, output: str) -> bool:
 
 def has_errors(text: str) -> bool:
     """Check if text contains error indicators.
-    
+
     Args:
         text: Text to check for errors
-        
+
     Returns:
         True if error indicators found
     """
@@ -121,11 +121,11 @@ def has_errors(text: str) -> bool:
 
 def extract_error_summary(text: str, max_chars: int = 200) -> str:
     """Extract only error/warning lines from output.
-    
+
     Args:
         text: Full output text
         max_chars: Maximum characters to return
-        
+
     Returns:
         Error summary or truncated text
     """
@@ -159,13 +159,13 @@ def summarize_output(
     text: str | None, max_chars: int = DEFAULT_MAX_OUTPUT_CHARS
 ) -> str:
     """Standard shell output summarization.
-    
+
     Keeps head and tail with highlights of errors/warnings/usage.
-    
+
     Args:
         text: Shell output text
         max_chars: Maximum characters to keep
-        
+
     Returns:
         Summarized text
     """
@@ -192,19 +192,19 @@ def summarize_smart(
     max_chars: int = DEFAULT_MAX_OUTPUT_CHARS,
 ) -> str:
     """Smart shell output summarization based on context.
-    
+
     Context-aware truncation that handles:
     - Archive context: keeps everything
     - Model context: aggressive truncation based on command type
     - Informational commands: omitted for model
     - Errors: extracts error lines only
-    
+
     Args:
         command: The shell command that was executed
         output: The command output
         context_role: "model" (aggressively truncate) or "archive" (keep full)
         max_chars: Maximum characters to keep
-        
+
     Returns:
         Summarized or full output based on context_role
     """

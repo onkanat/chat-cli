@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from rich.console import Console
-from rich.progress import (
-    Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
-)
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 console = Console()
 

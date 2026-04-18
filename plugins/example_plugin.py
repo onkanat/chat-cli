@@ -4,30 +4,32 @@ Example plugin for Ollama Chat CLI.
 This plugin demonstrates how to create custom commands.
 """
 
-from lib.plugins import PluginBase
-from typing import Dict, List, Callable, Any
+from typing import Any, Callable, Dict, List
+
 from rich.console import Console
+
+from lib.plugins import PluginBase
 
 console = Console()
 
 
 class ExamplePlugin(PluginBase):
     """Example plugin with custom commands."""
-    
+
     def __init__(self):
         super().__init__()
         self.name = "ExamplePlugin"
         self.version = "1.0.0"
         self.description = "Example plugin with custom commands"
         self.author = "Ollama Chat CLI"
-    
+
     def get_commands(self) -> Dict[str, Callable]:
         return {
             "hello": self.hello_command,
             "calc": self.calc_command,
             "time": self.time_command
         }
-    
+
     def get_info(self) -> Dict[str, Any]:
         return {
             "name": self.name,
@@ -36,12 +38,12 @@ class ExamplePlugin(PluginBase):
             "author": self.author,
             "commands": list(self.get_commands().keys())
         }
-    
+
     def hello_command(self, args: List[str], context: Dict[str, Any]) -> None:
         """Say hello to the user."""
         name = " ".join(args) if args else "World"
         console.print(f"[green]Hello, {name}! 👋[/green]")
-    
+
     def calc_command(self, args: List[str], context: Dict[str, Any]) -> None:
         """Evaluates math expressions safely. Supports +, -, *, /, **, %, sqrt, sin, cos, tan, log, exp."""
         if not args:
@@ -50,7 +52,7 @@ class ExamplePlugin(PluginBase):
             return
 
         expression = " ".join(args)
-        
+
         # Safe evaluation using AST
         import ast
         import math
@@ -103,15 +105,15 @@ class ExamplePlugin(PluginBase):
         except Exception as e:
             console.print(f"[red]Error parsing expression:[/red] {e}")
             console.print("[dim]Note: Variable assignment (set/get) and complex matrices are not supported.[/dim]")
-    
+
     def time_command(self, args: List[str], context: Dict[str, Any]) -> None:
         """Show current time."""
         from datetime import datetime
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"[blue]Current time: {current_time} 🕐[/blue]")
-    
+
     def on_load(self) -> None:
         console.print("[green]✓ Example plugin loaded! 🚀[/green]")
-    
+
     def on_unload(self) -> None:
         console.print("[yellow]📤 Example plugin unloaded[/yellow]")

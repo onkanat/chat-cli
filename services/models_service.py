@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Iterable, List, Dict, Any
+from typing import Any, Dict, Iterable, List
 
 from lib import ollama_wrapper as ow
-
 
 # Thin wrappers around ollama_wrapper to keep a stable seam
 

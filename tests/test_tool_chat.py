@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import re
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from repl.loop import sanitize_prompt, _parse_run_args
+
+from repl.loop import _parse_run_args, sanitize_prompt
+
 
 def test_sanitize_prompt():
     """Test string sanitization for incoming user inputs."""

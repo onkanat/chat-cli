@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import uuid
 import logging
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 # Defaults kept here so tests can import functions from main that delegate
 DEFAULT_MAX_CONTEXT_TOKENS = int(
@@ -22,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 def estimate_tokens(text: str) -> int:
     """Estimate token count for text using tiktoken or heuristic fallback.
-    
+
     Args:
         text: Text to estimate tokens for
-        
+
     Returns:
         Estimated token count
     """
@@ -54,14 +51,14 @@ def trim_history_for_tokens(
     reserve_for_response: int = 512,
 ) -> List[Dict[str, Any]]:
     """Trim history to fit within token budget.
-    
+
     Keeps most recent messages that fit within the token budget.
-    
+
     Args:
         history: Full conversation history
         max_tokens: Maximum tokens for context
         reserve_for_response: Tokens to reserve for model response
-        
+
     Returns:
         Trimmed history list
     """
@@ -92,20 +89,20 @@ def optimize_history_item_for_model(
     item: Dict[str, Any], model_name: str | None = None
 ) -> Dict[str, Any]:
     """Optimize a single history item for model context.
-    
+
     This creates an optimized version of the history item suitable for sending to the model,
     while keeping the original intact for archiving.
-    
+
     Args:
         item: Original history item
         model_name: Model name for profile-based optimization
-        
+
     Returns:
         Optimized copy of the item
     """
     from lib.config import get_model_profile
     from lib.shell_output import summarize_smart
-    
+
     optimized = item.copy()
 
     if item.get("role") == "shell":
@@ -132,14 +129,14 @@ def build_model_history_from_full(
     model_name: str | None = None
 ) -> List[Dict[str, Any]]:
     """Build optimized model history from full history.
-    
+
     This is useful when loading an archived session and need to create
     the optimized version for model context.
-    
+
     Args:
         full_history: Complete history with full shell outputs
         model_name: Model name for profile-based optimization
-        
+
     Returns:
         Optimized history suitable for model context
     """
@@ -151,35 +148,54 @@ def build_model_history_from_full(
 # =============================================================================
 
 # Config module
-from lib.config import get_model_profile, load_config as _load_config
-
-# Shell output module
-from lib.shell_output import (
-    is_traceback as _is_traceback,
-    is_safe_to_drop as _is_safe_to_drop,
-    has_errors as _has_errors,
-    extract_error_summary as _extract_error_summary,
-    summarize_output as summarize_shell_output,
-    summarize_smart as summarize_shell_output_smart,
+from lib.config import get_model_profile
+from lib.config import load_config as _load_config
+from lib.message_builder import (
+    build_messages_from_history as build_model_messages_from_history,
 )
 
 # Message builder module
 from lib.message_builder import (
     build_prompt_from_history as build_model_prompt_from_history_full,
-    build_messages_from_history as build_model_messages_from_history,
+)
+from lib.message_builder import (
     compress_system_message,
 )
 
 # Session manager module
 from lib.session_manager import (
     SESSIONS_DIR,
-    ensure_sessions_dir as _ensure_sessions_dir,
-    create_session as create_new_session,
-    list_sessions,
-    load_session,
     delete_session,
-    save_history,
+    list_sessions,
     load_history,
+    load_session,
+    save_history,
+)
+from lib.session_manager import (
+    create_session as create_new_session,
+)
+from lib.session_manager import (
+    ensure_sessions_dir as _ensure_sessions_dir,
+)
+from lib.shell_output import (
+    extract_error_summary as _extract_error_summary,
+)
+from lib.shell_output import (
+    has_errors as _has_errors,
+)
+from lib.shell_output import (
+    is_safe_to_drop as _is_safe_to_drop,
+)
+
+# Shell output module
+from lib.shell_output import (
+    is_traceback as _is_traceback,
+)
+from lib.shell_output import (
+    summarize_output as summarize_shell_output,
+)
+from lib.shell_output import (
+    summarize_smart as summarize_shell_output_smart,
 )
 
 # Backward compatibility aliases for old underscore names

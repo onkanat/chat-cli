@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Dict, Any
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
-
+from typing import Any, Dict
 
 DEFAULT_ANALYTICS = Path("analytics.json")
 

@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import json
 import re
-import requests
-from typing import Dict, List, Any, Callable, Optional
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
+import requests
 from rich.console import Console
 from rich.table import Table
-from rich.markdown import Markdown
 
 from lib.plugins import PluginBase
 
@@ -27,7 +27,7 @@ class KiwixPlugin(PluginBase):
         self.version = "1.1.0"
         self.description = "Access offline .zim libraries via Kiwix Hotspot"
         self.author = "Hakan Kilicaslan"
-        
+
         # Default config
         self._config = {
             "kiwix_url": "http://192.168.1.6:9999",
@@ -93,7 +93,7 @@ class KiwixPlugin(PluginBase):
         """Try primary then fallback URL."""
         urls = [self._config["kiwix_url"], self._config["fallback_url"]]
         timeout = self._config.get("timeout", 5)
-        
+
         for url in urls:
             try:
                 resp = requests.get(url, timeout=2)
@@ -134,11 +134,11 @@ class KiwixPlugin(PluginBase):
             import xml.etree.ElementTree as ET
             resp = requests.get(f"{base}/catalog/v2/entries", timeout=10)
             resp.raise_for_status()
-            
+
             root = ET.fromstring(resp.text)
             # Atom namespace
             ns = {'atom': 'http://www.w3.org/2005/Atom'}
-            
+
             entries = root.findall('atom:entry', ns)
 
             table = Table(title="📚 Kiwix Libraries", show_header=True, header_style="bold magenta")
@@ -151,13 +151,13 @@ class KiwixPlugin(PluginBase):
                 # Extract ID from urn:uuid:...
                 raw_id = entry.find('atom:id', ns).text
                 lib_id = raw_id.split(':')[-1] if ':' in raw_id else raw_id
-                
+
                 title = entry.find('atom:title', ns).text
                 count = entry.find('atom:articleCount', ns)
                 count_text = count.text if count is not None else "?"
                 lang = entry.find('atom:language', ns)
                 lang_text = lang.text if lang is not None else "?"
-                
+
                 table.add_row(lib_id, title, count_text, lang_text)
 
             console.print(table)
@@ -184,7 +184,7 @@ class KiwixPlugin(PluginBase):
             cat_resp.raise_for_status()
             cat_root = ET.fromstring(cat_resp.text)
             ns = {'atom': 'http://www.w3.org/2005/Atom'}
-            
+
             libraries = []
             for entry in cat_root.findall('atom:entry', ns):
                 raw_id = entry.find('atom:id', ns).text
@@ -197,7 +197,7 @@ class KiwixPlugin(PluginBase):
                 return
 
             all_matches = []
-            
+
             for lib in libraries:
                 lib_id = lib["id"]
                 # 2. Get/Cache navbar
@@ -211,7 +211,7 @@ class KiwixPlugin(PluginBase):
                             self._navbar_cache[lib_id] = None
                     except Exception:
                         self._navbar_cache[lib_id] = None
-                
+
                 navbar = self._navbar_cache[lib_id]
                 if navbar:
                     # 3. Recursive search in navbar
@@ -246,12 +246,12 @@ class KiwixPlugin(PluginBase):
         for child in children:
             name = child.get("name", "")
             href = child.get("href")
-            
+
             if query in name.lower() and href:
                 # Format path for /kiwix open
                 path = f"{lib_id}/{href}"
                 matches.append((path, name, lib_id))
-            
+
             if "children" in child:
                 matches.extend(self._find_in_navbar(child["children"], query, lib_id))
         return matches

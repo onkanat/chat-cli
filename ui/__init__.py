@@ -4,11 +4,14 @@ This module makes ``import ui as ui_mod`` behave like the previous flat ``ui.py`
 by proxying to the submodules and exposing common helpers like ``console``.
 """
 
-from ui import inputs  # noqa: F401
-from ui import renderers  # noqa: F401
-from ui import stream_display  # noqa: F401
-
 import importlib
+
+from ui import (
+    inputs,  # noqa: F401
+    renderers,  # noqa: F401
+    stream_display,  # noqa: F401
+)
+
 _ui_console_mod = importlib.import_module("ui.console")
 console = _ui_console_mod.console
 

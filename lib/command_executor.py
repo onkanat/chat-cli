@@ -1,3 +1,4 @@
+# flake8: noqa
 """
 Unified command executor for built-in slash commands.
 

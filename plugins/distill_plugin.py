@@ -13,18 +13,18 @@ Komutlar:
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Any
+from typing import Any, Callable, Dict, List
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from lib.plugins import PluginBase
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 
 console = Console()
 

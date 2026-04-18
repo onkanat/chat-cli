@@ -4,7 +4,6 @@ import importlib.util
 import sys
 from pathlib import Path
 
-
 MODULE_PATH = Path(__file__).resolve().parents[1] / "lib" / "agent_utils.py"
 SPEC = importlib.util.spec_from_file_location(
     "agent_utils_under_test", MODULE_PATH,

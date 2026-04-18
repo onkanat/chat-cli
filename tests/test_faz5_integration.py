@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import sys
 import importlib.util
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock
-from dataclasses import dataclass
 
 # Load modules
 spec_cmd = importlib.util.spec_from_file_location(

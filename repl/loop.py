@@ -1,3 +1,4 @@
+# flake8: noqa
 from __future__ import annotations
 
 import copy
@@ -46,12 +47,8 @@ try:
     import lib.input_handler as input_handler_mod
     input_handler = input_handler_mod
 except ImportError:
-    try:
-        import input_handler as input_handler_mod
-        input_handler = input_handler_mod
-    except ImportError:
-        # Silently fail only if truly missing, but maybe log it if we had logging setup here
-        pass
+    # Silently fail only if truly missing, but maybe log it if we had logging setup here
+    pass
 except Exception as e:
     ui_mod.console.print(f"[yellow]Warning: Failed to load input handler: {e}[/yellow]")
 

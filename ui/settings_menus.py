@@ -7,9 +7,9 @@ from urllib.parse import urlparse
 
 import ui as ui_mod
 from services.server_profiles import (
-    DEFAULT_SERVER_CONFIG,
     DEFAULT_LOCAL_BASE_URL,
     DEFAULT_REMOTE_BASE_URL,
+    DEFAULT_SERVER_CONFIG,
 )
 
 DEFAULT_CONFIG = Path("config.json")

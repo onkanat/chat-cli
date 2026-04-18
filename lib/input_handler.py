@@ -124,8 +124,8 @@ def enhanced_input_multiline(prompt: str, history: CommandHistory) -> str:
         lines = [line]
         pasted = False
         try:
-            import sys
             import select
+            import sys
             if sys.platform == 'win32':
                 import msvcrt
                 import time

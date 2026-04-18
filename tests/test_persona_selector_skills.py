@@ -6,13 +6,11 @@ the IDF-weighted suggest scoring pipeline.
 
 from __future__ import annotations
 
-import json
-import sys
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SYSTEM_PROMPTS_ROOT = PROJECT_ROOT.parent / "system_prompts"

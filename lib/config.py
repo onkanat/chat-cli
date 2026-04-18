@@ -82,45 +82,45 @@ def save_config(cfg: Dict[str, Any]) -> None:
 
 def detect_model_size(model_name: str) -> str:
     """Detect model size category from model name.
-    
+
     Args:
         model_name: Model name string (e.g., "gemma:2b", "llama3:8b")
-        
+
     Returns:
         Size category: "small" (<3B), "medium" (3-8B), or "large" (>8B)
     """
     if not model_name:
         return "medium"
-    
+
     model_lower = model_name.lower()
-    
+
     # Detect small models (1b, 2b, 3b, including decimal variants like 2.7b)
     # Match patterns like: 0.5b, 1b, 1.5b, 2b, 2.7b, 3b
     small_pattern = r'\b([0-2]\.\d+b|[0-3]b)\b'
     if re.search(small_pattern, model_lower):
         return "small"
-    
+
     # Detect medium models (4b, 5b, 6b, 7b, 8b including decimals)
     medium_pattern = r'\b([4-8]b|[4-8]\.\d+b)\b'
     if re.search(medium_pattern, model_lower):
         return "medium"
-    
+
     # Large models (>8B or unknown)
     return "large"
 
 
 def get_profile_by_size(size: str, config: Dict[str, Any]) -> Dict[str, Any]:
     """Get profile configuration for given size category.
-    
+
     Args:
         size: Size category ("small", "medium", or "large")
         config: Configuration dict containing model_profiles
-        
+
     Returns:
         Profile dict with settings for the size category
     """
     profiles = config.get("model_profiles", {})
-    
+
     default_profiles = {
         "small": {
             "max_context_tokens": 2000,
@@ -144,21 +144,21 @@ def get_profile_by_size(size: str, config: Dict[str, Any]) -> Dict[str, Any]:
             "prioritize_conversation": False,
         },
     }
-    
+
     return profiles.get(size, default_profiles.get(size, default_profiles["medium"]))
 
 
 def get_model_profile(model_name: str | None = None) -> Dict[str, Any]:
     """Get model profile based on model size detection.
-    
+
     Profiles:
     - small: <3B models (1b, 2b, 3b)
     - medium: 3B-8B models (7b, 8b)
     - large: >8B models or unknown
-    
+
     Args:
         model_name: Optional model name for size detection
-        
+
     Returns:
         Dict with profile settings:
         - max_context_tokens: Token budget for history
@@ -168,10 +168,10 @@ def get_model_profile(model_name: str | None = None) -> Dict[str, Any]:
         - prioritize_conversation: Whether to prioritize user/assistant over shell
     """
     config = load_config()
-    
+
     # Get context strategy
     strategy = config.get("context_strategy", "auto")
-    
+
     # If manual, use global max_tokens
     if strategy == "manual":
         max_tokens = config.get("max_tokens", 2048)
@@ -182,11 +182,11 @@ def get_model_profile(model_name: str | None = None) -> Dict[str, Any]:
             "reserve_for_response": 512,
             "prioritize_conversation": False,
         }
-    
+
     # Auto strategy - detect from model name
     if not model_name:
         # No model name, use medium profile as default
         return get_profile_by_size("medium", config)
-    
+
     size = detect_model_size(model_name)
     return get_profile_by_size(size, config)

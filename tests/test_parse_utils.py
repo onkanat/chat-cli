@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import sys
 import importlib.util
+import sys
 from pathlib import Path
 
 # Load parse_utils directly to avoid lib.__init__.py dependencies

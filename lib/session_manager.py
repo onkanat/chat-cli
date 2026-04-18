@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import uuid
 import logging
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -21,7 +21,7 @@ def save_history(
     history: List[Dict[str, Any]], path: Path | str = Path("chat_history.json")
 ) -> None:
     """Save history to JSON file.
-    
+
     Args:
         history: List of history items to save
         path: Path to save file (default: chat_history.json)
@@ -36,10 +36,10 @@ def save_history(
 
 def load_history(path: Path | str = Path("chat_history.json")) -> List[Dict[str, Any]]:
     """Load history from JSON file.
-    
+
     Args:
         path: Path to history file (default: chat_history.json)
-        
+
     Returns:
         List of history items, empty list if file doesn't exist
     """
@@ -62,13 +62,13 @@ def create_session(
     persona: Optional[str] = None,
 ) -> str:
     """Create a new session and save current history.
-    
+
     Args:
         history: Current conversation history
         custom_name: Optional custom name for the session
         model_used: Optional model name used in this session
         persona: Optional persona identifier
-        
+
     Returns:
         Session ID (timestamp-based + uuid suffix)
     """
@@ -107,7 +107,7 @@ def create_session(
 
 def list_sessions() -> List[Dict[str, Any]]:
     """List all available sessions.
-    
+
     Returns:
         List of session metadata (without full history)
     """
@@ -136,10 +136,10 @@ def list_sessions() -> List[Dict[str, Any]]:
 
 def load_session(session_id: str) -> List[Dict[str, Any]]:
     """Load history from a specific session.
-    
+
     Args:
         session_id: Session identifier
-        
+
     Returns:
         History list, or empty list if session not found
     """
@@ -159,10 +159,10 @@ def load_session(session_id: str) -> List[Dict[str, Any]]:
 
 def delete_session(session_id: str) -> bool:
     """Delete a session file.
-    
+
     Args:
         session_id: Session identifier
-        
+
     Returns:
         True if deleted successfully, False otherwise
     """

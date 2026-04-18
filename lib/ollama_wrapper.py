@@ -8,7 +8,7 @@ Uses official ollama package (https://github.com/ollama/ollama-python).
 from __future__ import annotations
 
 from threading import Lock
-from typing import Iterator, List, Optional, Dict, Any
+from typing import Any, Dict, Iterator, List, Optional
 
 from ollama import Client
 from ollama._types import ChatResponse, GenerateResponse, ListResponse

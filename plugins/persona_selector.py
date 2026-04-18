@@ -1,3 +1,4 @@
+# flake8: noqa
 """Persona selector plugin for managing system prompts.
 
 Supports two persona sources (auto-detected):

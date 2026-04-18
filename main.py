@@ -12,31 +12,13 @@ import typer
 # Import modular components
 import lib.history as history_mod
 from lib.history import (
-    summarize_shell_output,
     _estimate_tokens,
     _trim_history_for_tokens,
     build_model_messages_from_history,
+    summarize_shell_output,
 )
-
-
-from services.server_profiles import (
-    DEFAULT_SERVER_CONFIG,
-    DEFAULT_LOCAL_BASE_URL,
-    DEFAULT_REMOTE_BASE_URL,
-)
-
-
 from ui.settings_menus import (
-    settings_menu,
-    server_settings_menu,
     _ensure_server_profiles,
-    _get_server_profiles,
-    _set_active_server,
-    _set_server_base_url,
-    _validate_base_url,
-    _determine_base_url,
-    _server_switch_menu,
-    _server_edit_prompt,
 )
 
 # Constants

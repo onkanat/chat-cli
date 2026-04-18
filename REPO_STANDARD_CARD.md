@@ -13,17 +13,17 @@
 |---|---|---|
 | Git repo | Yes | Top-level repository detected |
 | README | Yes | Present |
-| License | No | Add `LICENSE` |
+| License | Yes | `LICENSE` added |
 | Dependency manifest | Yes | `pyproject.toml`, `requirements.txt` |
 | Tests | Yes | Top-level `tests/` directory present |
-| CI | No | No workflow found |
-| Config example | No | No `.env.example` found |
-| Contributing guide | No | `CONTRIBUTING` not found |
-| Security guide | No | `SECURITY` not found |
-| Changelog | No | `CHANGELOG` not found |
+| CI | Yes | `.github/workflows/ci.yml` added |
+| Config example | Yes | `.env.example` added |
+| Contributing guide | Yes | `CONTRIBUTING.md` added |
+| Security guide | Yes | `SECURITY.md` added |
+| Changelog | Yes | `CHANGELOG.md` added |
 
 ## Next actions
 
-1. Add a `LICENSE` file.
-2. Add CI for lint and test commands.
-3. Add `.env.example` or document config handling if environment variables are used.
+1. Keep CI commands aligned with repo instructions (`ruff`, `mypy`, `pytest`).
+2. Update `CHANGELOG.md` on every release-impacting change.
+3. Revisit `.env.example` if runtime environment variable support is expanded.

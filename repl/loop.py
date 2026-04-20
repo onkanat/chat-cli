@@ -14,7 +14,11 @@ from rich.live import Live
 import ui as ui_mod
 import analytics
 from lib.agent_orchestrator import AgentOrchestrator
-from lib.command_executor import execute_command, CommandContext
+from lib.command_executor import (
+    execute_command,
+    CommandContext,
+    build_help_lines,
+)
 from lib.parse_utils import (
     parse_run_args,
     parse_natural_language_command,
@@ -235,6 +239,29 @@ def _format_session_entry(session: dict) -> str:
         f"{marker} [cyan]{session['session_id']}[/cyan] - "
         f"[white]{name}[/white] ([dim]{model_name}[/dim])"
     )
+
+
+def _build_repl_help_text(has_persona_plugin: bool) -> str:
+    """Build REPL help text from the shared command catalog plus REPL-only extras."""
+    lines = build_help_lines()
+
+    if lines and lines[0] == "Available Commands:":
+        lines.insert(1, "!<cmd> - Run a shell command and store the output")
+    else:
+        lines = [
+            "Available Commands:",
+            "!<cmd> - Run a shell command and store the output",
+            *lines,
+        ]
+
+    if has_persona_plugin:
+        insert_at = len(lines) - 2 if len(lines) >= 2 else len(lines)
+        lines[insert_at:insert_at] = [
+            "/persona - Manage personas (list, set <id>, clear, info <id>, suggest <prompt>)",
+            "/suggest <prompt> - Suggest personas based on your prompt",
+        ]
+
+    return "\n".join(lines)
 
 
 def run_chat(
@@ -546,40 +573,8 @@ def run_chat(
                         ui_mod.console.print("[yellow]Usage: /plugin-info <plugin_name>[/yellow]")
                     continue
                 elif cmd in ("help", "h"):
-                    help_text = (
-                        "/list - list models\n"
-                        "/model - interactive model selection menu\n"
-                        "!<cmd> - run a shell command and store the output\n"
-                        "/settings - configure model parameters (temperature, tokens)\n"
-                        "/search <query> - search conversation history\n"
-                        "/clear - clear the terminal screen\n"
-                        "/export <filename> [format] - export conversation (markdown/json/txt)\n"
-                        "/stats - show conversation statistics\n"
-                        "/analytics - show detailed analytics dashboard\n"
-                        "/monitor - start real-time monitoring\n"
-                        "/report [filename] - generate analytics report\n"
-                        "/plugins - list loaded plugins\n"
-                        "/plugins-available - list available plugins\n"
-                        "/plugin-load <name> - load a plugin\n"
-                        "/plugin-unload <name> - unload a plugin\n"
-                        "/plugin-info <name> - show plugin information\n"
-                        "/new_session - session management (create, list, switch, delete)\n"
-                    )
-                    if persona_plugin:
-                        help_text += (
-                            "/persona - manage personas (list, set <id>, clear, info <id>, suggest <prompt>)\n"
-                            "/suggest <prompt> - suggest personas based on your prompt\n"
-                        )
-                    help_text += (
-                        "/theme <name> - quick theme change (default/dark/light)\n"
-                        "/load <name> - set current model (must be downloaded first)\n"
-                        "/pull <name> - download new model from ollama library\n"
-                        "/delete | /rm | /remove <name> - delete model\n"
-                        "/run <model> <prompt...> - run model (CLI fallback)\n"
-                        "/save <file> - save history to file\n"
-                        "/load_history <file> - load history from file\n"
-                        "/exit | /quit - save and exit the REPL\n"
-                        "/help - show this help message"
+                    help_text = _build_repl_help_text(
+                        has_persona_plugin=bool(persona_plugin)
                     )
                     ui_mod.console.print(help_text)
                     continue

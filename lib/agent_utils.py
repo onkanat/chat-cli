@@ -26,6 +26,16 @@ ALL_CALL_CMD_PATTERN = re.compile(
 JSON_TOOL_KEYS = ("tool", "command", "action", "name")
 
 
+@dataclass
+class AgentRunResult:
+    """Structured result returned by AgentOrchestrator.run()."""
+
+    success: bool
+    iterations: int
+    stop_reason: str  # "completed" | "max_iterations" | "repeat_limit" | "json_limit"
+    last_command: str | None
+
+
 def normalize_agent_command(command: str) -> str:
     """Normalize a command extracted from <call_cmd> blocks."""
     return command.rstrip("> ").strip()

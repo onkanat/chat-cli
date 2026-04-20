@@ -43,6 +43,46 @@ python3 main.py --help
 - [Development Notes](docs/AGENTS.md) - Refactoring history and decisions
 - [Context Optimization](docs/CONTEXT_OPTIMIZATION_ANALYSIS.md) - Memory strategies
 
+> [!TIP]
+> Built-in slash commands are aligned with the in-app `/help` output. For the
+> full command surface, prefer `docs/FULL_README.md` and verify live behavior in
+> the REPL with `/help`.
+
+<!-- BEGIN GENERATED: slash-command-summary -->
+## 🧭 Built-in Slash Commands
+
+The command catalog below is generated from `lib/command_executor.py`.
+Use in-app `/help` to verify live behavior in the REPL.
+
+```text
+/list, /models - List available Ollama models
+/model - Interactive model selection
+/load <name> - Set current model
+/pull <name> - Download model
+/delete, /rm, /remove <name> - Delete model
+/run <model> <prompt> - Run model with prompt
+/settings - Configure parameters
+/theme <name> - Change theme
+/search <query> - Search history
+/clear - Clear screen
+/export <file> [format] - Export conversation
+/stats - Show statistics
+/analytics - Analytics dashboard
+/monitor - Real-time monitoring
+/report [file] - Generate report
+/plugins - List loaded plugins
+/plugins-available - List available plugins
+/plugin-load <name> - Load plugin
+/plugin-unload <name> - Unload plugin
+/plugin-info <name> - Show plugin info
+/save, /save_history <file> - Save history
+/load_history <file> - Load history
+/new_session - Session management
+/help, /h - Show this help
+/exit, /quit - Exit and save
+```
+<!-- END GENERATED: slash-command-summary -->
+
 ## 🏗️ Architecture
 
 ```text

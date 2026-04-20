@@ -69,7 +69,7 @@ class TestKiwixPlugin(unittest.TestCase):
 
         # Verify tags removed but content kept
         self.assertIn("Title", text)
-        self.assertIn("Hello   world!", text) # &nbsp; replaced
+        self.assertIn("Hello   world!", text)  # &nbsp; replaced
         self.assertIn("Item 1", text)
         self.assertIn("Item 2", text)
 

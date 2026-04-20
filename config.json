@@ -1,5 +1,5 @@
 {
-  "default_model": "nemotron-cascade-2:30b",
+  "default_model": "qwen3.6:35b-a3b-q4_K_M",
   "system_message": "Sen hızlı ve akıcı düşünen bir asistanısın",
   "max_tokens": 16384,
   "ollama_servers": {
@@ -17,7 +17,7 @@
   },
   "persona": {
     "current_persona": "assistant",
-    "last_updated": "2026-04-18T18:55:17.202705+00:00"
+    "last_updated": "2026-04-20T07:09:49.402943+00:00"
   },
   "generation_route": "omni",
   "fallback_to_direct_on_error": true,
@@ -36,5 +36,5 @@
     "num_keep": 128,
     "low_vram": false
   },
-  "current_session_id": "20260418_001659_39b2fc"
+  "current_session_id": "20260419_173737_bd6c10"
 }

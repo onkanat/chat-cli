@@ -118,5 +118,55 @@
   {
     "role": "assistant",
     "text": "\n**Deney: R‑2R DAC’in kullanım alanları nedir?**  \n\n**Doğrudan yanıt:**  \n\nR‑2R DAC (tek‑ve‑çift direnç çözümlemesi) yüksek doğruluk, düşük maliyet ve basit mimari nedeniyle aşağıdaki uygulamalarda tercih edilir:\n\n- **Ses ve müzik üretimi** – stereofon Analog‑Dijital dönüşüm, çok kanallı audio çözücüler.  \n- **Test ve ölçüm ekipmanları** – osiloskop sinyallerinin, fon derleyicilerin analog çıkışı, doğrusal olmayan dönüşümler.  \n- **İletişim sistemleri** – RF sinyal üreticileri, modülasyon çerçeveleri, DDS (Direct Digital Synthesis) devreleri.  \n- **Endüstriyel kontrol** – PLC’lerde analog çıkış kartları, motor kontrol DAC’leri, hassas analog komut sinyalleri.  \n- **Medikal cihazlar** – medikal test ekipmanlarında referans gerilimleri, düşük gürültülü analog çıkışlar.  \n- **Otomasyon ve akıllı sensörler** – sensör veri dönüştürücülerinde yüksek çözünürlük gerektiren analog çıkışlar.\n\n**Kısa özet:** Düşük maliyetli, yüksek doğruluğu gereken tüm uygulamalarda R‑2R DAC tercih edilir; örneğin ses, ölçüm, iletişim ve endüstriyel akıllı kontrol cihazları.  \n\n*İhtiyaç duyarsanız R‑2R DAC mimarisi ve örnek devreleri hakkında ek belge veya referans tırnakları sağlayabilirim.*"
+  },
+  {
+    "role": "user",
+    "text": "Merhaba;"
+  },
+  {
+    "role": "assistant",
+    "text": "Merhaba, size nasıl yardımcı olabilirim?"
+  },
+  {
+    "role": "user",
+    "text": "Çalışma dizinini kontrol et."
+  },
+  {
+    "role": "assistant",
+    "text": "**Çalışma dizini (working directory) nasıl kontrol edilir?**  \n\n1. **Çalışma dizini kontrolünü doğrulayın:**  \n   ```bash\n   # Terminalde şu komutu girin:\n   pwd\n   ```\n   Bu, şu anda hangi dizinde olduğunuzu gösterir.\n\n2. **İnceleme için yapılacakları:  \n   - **Güncel dizini görmek için `pwd` kullanın.  \n   - **Belirli bir dizine geçmek için `cd /path/to/directory` komutunu kullanın.  \n   - **İlgili dizinde bulunan dosya ve klasörleri listelemek için `ls` (ve `ls -la` gibi) komutlarını kullanabilirsiniz.  \n\nBu adımlar, bir çalışma diziniyle ilgili tüm temel kontrol ve inceleme ihtiyaçlarınızı karşılar."
+  },
+  {
+    "role": "shell",
+    "command": "pwd",
+    "output": "/Users/hakankilicaslan/Git/chat-cli\n",
+    "timestamp": "2026-04-19T14:29:34.382417"
+  },
+  {
+    "role": "user",
+    "text": "agent ile çalışma dizinini kontrol et."
+  },
+  {
+    "role": "assistant",
+    "text": "**Kısa Özet:**\n\n- **Çalışma Dizinini Hangi Modüller Kontrol Ediyor?**  \n  • `lib/agent_orchestrator.py` – Döngü yönetimi, komut yürütme, guard‑rail uygulamaları  \n  • `lib/agent_utils.py` – Komutları çıkartma ve geçersiz `<call_cmd>` eşleştirmeler  \n\n- **Nasıl Çalışır?**  \n  - `agent_orchestrator.py` komutları `full_match` içinde alır ve, `agent_utils.py` ile bu komutları ayrıştırır/çıkartır.  \n  - Çalışma dizini, `agent_orchestrator.py` içindeki işlevlerin bulunduğu dosya (`./`) dizinidir.  \n  - İstersen, bu diziye özel bir ortam değişkeni (`CHAT_WORK_DIR` gibi) tanımlayarak kontrol edebilirsin.  \n\nBu modüllerle çalışma dizini, komutlar, ve veri aktarımı için `agent_utils.py` ve `agent_orchestrator.py` birlikte kullanılmalıdır."
+  },
+  {
+    "role": "user",
+    "text": "LLMWiki çok gürültülü gürültü tesbiti yap gereksiz herşeyi raporla."
+  },
+  {
+    "role": "assistant",
+    "text": "**Program Akışı:**\n\n1. **Kontrol** – Hangi kısımda çalışacağı belirlenir.\n2. **Döngüler** – `MOV CX, 10`, ardından `LOOP LABEL` ile 10 kez döngü yapılır.\n3. **Fonksiyon Çağırma** – `CALL <fonksiyon>`, ardından `RET` ile geri dönülür.\n\n**Not:** Bu bilgiler **LLMWiki** içinde sunulmuş, program akışının kontrolü, döngüler ve koşullu işlemler, fonksiyon çağırma konularında kullanılır."
+  },
+  {
+    "role": "user",
+    "text": "Türkiye coğrafyası hakkında beş soru üret."
+  },
+  {
+    "role": "assistant",
+    "text": "1. Türkiye’nin coğrafi konumu nedir?\n2. Türkiye’nin coğrafi yapısının ana unsurları nelerdir?\n3. Türkiye’nin coğrafi yapısının özellikleri ve etkileri nedir?\n4. Türkiye’nin coğrafi yapısının bölgesel farklılıkları hangi faktörler ile belirlenir?\n5. Türkiye’nin coğrafi yapısında hangi çevresel faktörler önem taşır?"
+  },
+  {
+    "role": "user",
+    "text": " Türkiye’nin coğrafi konumu nedir? "
   }
 ]

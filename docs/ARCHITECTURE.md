@@ -175,20 +175,47 @@ python main.py --help
 /monitor                   # Canlı izleme paneli
 ```
 
-### REPL Plugin ve Sistem Komutları
+<!-- BEGIN GENERATED: repl-command-sections -->
+### REPL Model Management
 
 ```bash
-/plugins                   # Yüklü pluginler
-/plugins-available         # Dosya sistemindeki pluginler
-/plugin-load <ad>          # Plugin yükle
-/plugin-unload <ad>        # Plugin kaldır
-/plugin-info <ad>          # Plugin detayları
-/new_session               # Oturum yönetim menüsü
-/save <dosya>              # Geçmiş kaydet
-/load_history <dosya>      # Geçmiş yükle
-/exit veya /quit           # Kaydedip çık
-/help                      # Komut özetleri
+/list, /models                   # List available Ollama models
+/model                           # Interactive model selection
+/load <name>                     # Set current model
+/pull <name>                     # Download model
+/delete, /rm, /remove <name>     # Delete model
+/run <model> <prompt>            # Run model with prompt
+/settings                        # Configure parameters
+/theme <name>                    # Change theme
 ```
+
+### REPL Search, Export and Analytics
+
+```bash
+/search <query>                  # Search history
+/clear                           # Clear screen
+/export <file> [format]          # Export conversation
+/stats                           # Show statistics
+/analytics                       # Analytics dashboard
+/monitor                         # Real-time monitoring
+/report [file]                   # Generate report
+```
+
+### REPL Plugin and System Commands
+
+```bash
+/plugins                         # List loaded plugins
+/plugins-available               # List available plugins
+/plugin-load <name>              # Load plugin
+/plugin-unload <name>            # Unload plugin
+/plugin-info <name>              # Show plugin info
+/save, /save_history <file>      # Save history
+/load_history <file>             # Load history
+/new_session                     # Session management
+/help, /h                        # Show this help
+/exit, /quit                     # Exit and save
+```
+<!-- END GENERATED: repl-command-sections -->
 
 ### Oturum Yönetimi (Session Management)
 

@@ -9,7 +9,7 @@ import shlex
 from typing import Any
 
 from lib.command_executor import execute_command, CommandContext
-from lib.agent_utils import detect_json_tool_name, parse_agent_command
+from lib.agent_utils import AgentRunResult, detect_json_tool_name, parse_agent_command
 
 
 class AgentOrchestrator:
@@ -53,8 +53,9 @@ class AgentOrchestrator:
         self.json_retry_count = 0
         self.last_command: str | None = None
         self.repeated_command_count = 0
+        self._stop_reason: str = "completed"
 
-    def run(self, system_message: str) -> bool:
+    def run(self, system_message: str) -> AgentRunResult:
         """
         Execute agent loop.
 
@@ -62,42 +63,15 @@ class AgentOrchestrator:
             system_message: System message for the model
 
         Returns:
-            True if completed successfully
+            AgentRunResult with iteration count and stop reason
         """
-        agent_running = True
-        self.iteration_count = 0
-        self.json_retry_count = 0
-        self.last_command = None
-        self.repeated_command_count = 0
-
-        while agent_running:
-            if self.iteration_count >= self.MAX_ITERATIONS:
-                warn_msg = (
-                    "Agent stopped after reaching the maximum number "
-                    "of autonomous steps."
-                )
-                self.ui_mod.console.print(
-                    f"[yellow]{warn_msg}[/yellow]"
-                )
-                self.history.append({"role": "system", "text": warn_msg})
-                break
-
-            self.iteration_count += 1
-            agent_running = False
-
-            # Get reply from model
-            reply = self._get_reply(system_message)
-
-            # Parse and process reply
-            agent_running = self._process_reply(reply, agent_running)
-
-        return True
+        return self._run_loop(system_message)
 
     def run_with_initial_reply(
         self,
         initial_reply: str,
         system_message: str,
-    ) -> bool:
+    ) -> AgentRunResult:
         """
         Execute agent loop with an initial reply already generated.
 
@@ -106,18 +80,28 @@ class AgentOrchestrator:
             system_message: System message for the model
 
         Returns:
-            True if completed successfully
+            AgentRunResult with iteration count and stop reason
         """
-        agent_running = True
+        return self._run_loop(system_message, initial_reply=initial_reply)
+
+    def _run_loop(
+        self,
+        system_message: str,
+        initial_reply: str | None = None,
+    ) -> AgentRunResult:
+        """Shared loop body for run() and run_with_initial_reply()."""
         self.iteration_count = 0
         self.json_retry_count = 0
         self.last_command = None
         self.repeated_command_count = 0
+        self._stop_reason = "completed"
 
-        reply = initial_reply
+        agent_running = True
+        pending_reply: str | None = initial_reply
 
         while agent_running:
             if self.iteration_count >= self.MAX_ITERATIONS:
+                self._stop_reason = "max_iterations"
                 warn_msg = (
                     "Agent stopped after reaching the maximum number "
                     "of autonomous steps."
@@ -131,14 +115,20 @@ class AgentOrchestrator:
             self.iteration_count += 1
             agent_running = False
 
-            # Process current reply
-            agent_running = self._process_reply(reply, agent_running)
-
-            # Get next reply if needed
-            if agent_running:
+            if pending_reply is not None:
+                reply = pending_reply
+                pending_reply = None
+            else:
                 reply = self._get_reply(system_message)
 
-        return True
+            agent_running = self._process_reply(reply, agent_running)
+
+        return AgentRunResult(
+            success=True,
+            iterations=self.iteration_count,
+            stop_reason=self._stop_reason,
+            last_command=self.last_command,
+        )
 
     def _get_reply(self, system_message: str) -> str:
         """Get next reply from model."""
@@ -311,6 +301,7 @@ class AgentOrchestrator:
                 "Agent stopped because it repeated the same "
                 f"command too many times: {cmd_str}"
             )
+            self._stop_reason = "repeat_limit"
             self.ui_mod.console.print(f"[yellow]{warn_msg}[/yellow]")
             self.history.append({"role": "system", "text": warn_msg})
             return False
@@ -339,76 +330,85 @@ class AgentOrchestrator:
                 }
             )
 
-        # Capture execution output
+        # Capture execution output — plain print() and Rich console.print()
         cap_buffer = io.StringIO()
         old_stdout = sys.stdout
         sys.stdout = cap_buffer
 
-        try:
-            if cmd_str.startswith("!"):
-                print(
-                    "Error: Shell commands (!) are strictly "
-                    "forbidden for the Agent. Please use only "
-                    "/ slash commands."
-                )
-            else:
-                # Parse command
-                try:
-                    c_parts = shlex.split(cmd_str)
-                    c_cmd = c_parts[0]
-                    c_args = c_parts[1:]
-                except Exception:
-                    c_cmd = cmd_str.split()[0]
-                    c_args = cmd_str.split()[1:]
-
-                if c_cmd.startswith("/"):
-                    c_cmd = c_cmd[1:]
-
-                # Try plugin first
-                legacy_context = {
-                    "history": self.history,
-                    "current_model": self.current_model,
-                    "analytics_manager": self.analytics_manager,
-                    "ui_mod": self.ui_mod,
-                    "ollama_wrapper": self.ollama_wrapper,
-                    "chat_context": self.chat_context,
-                    "config": self.config,
-                }
-
-                if not self.plugin_manager.execute_command(
-                    c_cmd, c_args, legacy_context
-                ):
-                    # Try built-in executor
-                    cmd_ctx = CommandContext(
-                        history=self.history,
-                        current_model=self.current_model,
-                        plugin_manager=self.plugin_manager,
-                        config=self.config,
-                        analytics_manager=self.analytics_manager,
-                        ui_mod=self.ui_mod,
-                        ollama_wrapper=self.ollama_wrapper,
-                        chat_context=self.chat_context,
+        with self.ui_mod.console.capture() as _rich_cap:
+            try:
+                if cmd_str.startswith("!"):
+                    print(
+                        "Error: Shell commands (!) are strictly "
+                        "forbidden for the Agent. Please use only "
+                        "/ slash commands."
                     )
-                    result = execute_command(c_cmd, c_args, cmd_ctx)
-                    if result.success:
-                        print(result.output)
-                    else:
-                        print(f"Error: {result.error}")
-                        if (
-                            result.error
-                            == "Unknown command: unknown"
-                        ):
-                            print(
-                                "Terminal tools like python, bash, sh "
-                                "are FORBIDDEN! Only use loaded plugin "
-                                "commands or safe built-in commands."
-                            )
-        except Exception as e:
-            print(f"Execution failed: {e}")
-        finally:
-            sys.stdout = old_stdout
+                else:
+                    # Parse command
+                    try:
+                        c_parts = shlex.split(cmd_str)
+                        c_cmd = c_parts[0]
+                        c_args = c_parts[1:]
+                    except Exception:
+                        c_cmd = cmd_str.split()[0]
+                        c_args = cmd_str.split()[1:]
 
-        ext_out = cap_buffer.getvalue().strip()
+                    if c_cmd.startswith("/"):
+                        c_cmd = c_cmd[1:]
+
+                    if c_cmd in self.BLOCKED_COMMANDS:
+                        print(
+                            f"Error: Command '/{c_cmd}' is blocked "
+                            "for agent use."
+                        )
+                    else:
+                        # Try plugin first
+                        legacy_context = {
+                            "history": self.history,
+                            "current_model": self.current_model,
+                            "analytics_manager": self.analytics_manager,
+                            "ui_mod": self.ui_mod,
+                            "ollama_wrapper": self.ollama_wrapper,
+                            "chat_context": self.chat_context,
+                            "config": self.config,
+                        }
+
+                        if not self.plugin_manager.execute_command(
+                            c_cmd, c_args, legacy_context
+                        ):
+                            # Try built-in executor
+                            cmd_ctx = CommandContext(
+                                history=self.history,
+                                current_model=self.current_model,
+                                plugin_manager=self.plugin_manager,
+                                config=self.config,
+                                analytics_manager=self.analytics_manager,
+                                ui_mod=self.ui_mod,
+                                ollama_wrapper=self.ollama_wrapper,
+                                chat_context=self.chat_context,
+                            )
+                            result = execute_command(c_cmd, c_args, cmd_ctx)
+                            if result.success:
+                                print(result.output)
+                            else:
+                                print(f"Error: {result.error}")
+                                if (
+                                    result.error
+                                    == "Unknown command: unknown"
+                                ):
+                                    print(
+                                        "Terminal tools like python, bash, sh "
+                                        "are FORBIDDEN! Only use loaded plugin "
+                                        "commands or safe built-in commands."
+                                    )
+            except Exception as e:
+                print(f"Execution failed: {e}")
+            finally:
+                sys.stdout = old_stdout
+
+        _rich_out = _rich_cap.get().strip()
+        _plain_out = cap_buffer.getvalue().strip()
+        ext_out = "\n".join(p for p in [_plain_out, _rich_out] if p).strip()
         if not ext_out:
             ext_out = (
                 "Command executed successfully "
@@ -451,7 +451,7 @@ class AgentOrchestrator:
             self.history.append({"role": "system", "text": err_msg})
             self.ui_mod.console.print(f"[dim]{err_msg}[/dim]\n")
 
-            if self.json_retry_count >= self.MAX_AGENT_JSON_RETRIES:
+            if self.json_retry_count >= self.MAX_JSON_RETRIES:
                 warn_msg = (
                     "Agent stopped after repeated JSON tool "
                     "hallucinations."
@@ -462,6 +462,7 @@ class AgentOrchestrator:
                 self.history.append(
                     {"role": "system", "text": warn_msg}
                 )
+                self._stop_reason = "json_limit"
                 return False
             else:
                 return True

@@ -34,7 +34,7 @@ class KiwixPlugin(PluginBase):
             "fallback_url": "http://localhost:9999",
             "timeout": 10
         }
-        self._navbar_cache = {} # Cache for library navbars
+        self._navbar_cache = {}  # Cache for library navbars
         self._load_plugin_config()
 
     def _load_plugin_config(self):
@@ -65,7 +65,7 @@ class KiwixPlugin(PluginBase):
     def kiwix_command(self, args: List[str], context: Dict[str, Any]) -> None:
         """
         Kiwix Hotspot commands.
-        Usage: 
+        Usage:
             /kiwix list                - List available ZIM libraries
             /kiwix search <query>      - Search across all libraries
             /kiwix open <zim_id>/<url> - Open and inject an article into context
@@ -293,7 +293,7 @@ class KiwixPlugin(PluginBase):
             history = context.get("history", [])
             history.append({
                 "role": "system",
-                "text": f"Kiwix Article Context ({title}):\n\n{text[:10000]}" # Limit to 10k chars
+                "text": f"Kiwix Article Context ({title}):\n\n{text[:10000]}"  # Limit to 10k chars
             })
             console.print(f"[blue]✓ Article '{title}' injected into chat context ({len(text)} chars).[/blue]")
 

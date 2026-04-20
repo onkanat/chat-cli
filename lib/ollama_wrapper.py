@@ -81,11 +81,11 @@ def delete_model(name: str) -> bool:
         get_client().delete(name)
         return True
     except Exception:
-        # We might want to log this or raise it, but preserving bool return for now 
+        # We might want to log this or raise it, but preserving bool return for now
         # based on existing usage, or switching to raise?
         # The plan said "better error handling", so let's log or re-raise if critical.
-        # But existing code expects bool. I will keep bool but maybe log? 
-        # For now, let's just keep strict bool but maybe print? 
+        # But existing code expects bool. I will keep bool but maybe log?
+        # For now, let's just keep strict bool but maybe print?
         # Actually, let's keep it simple as per original behavior but safer.
         return False
 

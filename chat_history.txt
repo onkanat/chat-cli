@@ -1,20 +1,23 @@
-/help
 /wiki
-/load_history
-model
-/model
+Çalışma dizinini kontrol et.
+!pwd
+agent ile çalışma dizinini kontrol et.
+/distill
+/wiki
+/wiki ingest-session
+/wiki lint
+/wiki
+LLMWiki çok gürültülü gürültü tesbiti yap gereksiz herşeyi raporla.
+/distill status
 /clear
-/help
-/suggest Türkiye coğrafyası büyük şehirleri, sanayi ve ekonomisi.
-Türkiye coğrafyası büyük şehirleri, sanayi ve ekonomisi.
-Bu konu üzerine gidelim. Mekanik/otomotiv: Bursa, Kocaeli, İzmit.
-Deniz araçları için bir konum, harita, navigasyon, otomatik dümen, hava tahmin sistemi geliştirmek için takım kurma ve planlamasını yap.
-8-10 kişi planlanan ekibin görev dağılımını ve takvimi yaz.
-persona listesinden gerekli yeteneklerdeki agentları görevlere dağıt.
-Simüle et bir görev belirle ve mevcut personalar ile görevi durmadan tamamla.
-tamam planı uygula
-dene bakalım neleri yükleyebileceksin
-/wiki
-/wiki ingest-session
+/new_session
+/clear
 /quit
-/wiki ingest-session
+Türkiye coğrafyası hakkında beş soru üret.
+Türkiye’nin coğrafi konumu nedir?
+│  1 Türkiye’nin coğrafi konumu nedir?                                                                           │
+│  2 Türkiye’nin coğrafi yapısının ana unsurları nelerdir?                                                       │
+│  3 Türkiye’nin coğrafi yapısının özellikleri ve etkileri nedir?                                                │
+│  4 Türkiye’nin coğrafi yapısının bölgesel farklılıkları hangi faktörler ile belirlenir?                        │
+Temel veri setinden değil sistem içinde bulabildiğin en doğru cevapları ver.
+omni mode kapat direkt chat e geç.

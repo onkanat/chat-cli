@@ -4,6 +4,7 @@ from main import (
     build_model_messages_from_history,
     summarize_shell_output,
 )
+from lib.message_builder import build_messages_from_history
 
 
 def make_long_text(prefix: str = "line", n_lines: int = 2000) -> str:
@@ -58,3 +59,21 @@ def test_build_model_messages_summarizes_shell_output():
     assert "Shell output:\n" in contents
     # the shell output included should be much shorter than original
     assert len(contents) < len(big_output)
+
+
+def test_system_role_entries_get_prefix_in_messages():
+    """B3: role:system history entries must appear as [System]: prefix, not raw content."""
+    history = [
+        {"role": "user", "text": "hello"},
+        {"role": "assistant", "text": "hi"},
+        {"role": "system", "text": "Agent Command Output:\nfoo bar"},
+    ]
+    msgs = build_messages_from_history(history, system_message="sys")
+    user_contents = [m["content"] for m in msgs if m.get("role") == "user"]
+    assert any("[System]:" in c for c in user_contents), (
+        "role:system entries must be wrapped with [System]: prefix"
+    )
+    # Must NOT appear as a bare string without the prefix
+    assert not any(
+        c == "Agent Command Output:\nfoo bar" for c in user_contents
+    )

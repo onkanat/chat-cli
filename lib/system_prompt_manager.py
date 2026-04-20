@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 from typing import Any
 
 
@@ -17,34 +19,29 @@ CRITICAL RULES FOR AUTONOMOUS AGENT:
 The system will run the command, pause your generation, and append the output to the chat history. You must then continue answering based on the output.
 """
 
-BUILTIN_COMMANDS = {
-    "/list": "List available Ollama models",
-    "/models": "List available Ollama models (alias for /list)",
-    "/model": "Interactive model selection menu",
-    "/load <name>": "Set current model (must be downloaded first)",
-    "/pull <name>": "Download model from Ollama library",
-    "/delete <name>": "Delete a downloaded model",
-    "/run <model> <prompt>": "Run a model with a prompt (CLI fallback)",
-    "/settings": "Configure model parameters (temperature, num_ctx, num_gpu)",
-    "/search <query>": "Search conversation history",
-    "/clear": "Clear the terminal screen",
-    "/export <file> [format]": "Export conversation as markdown/json/txt",
-    "/stats": "Show conversation statistics",
-    "/analytics": "Show detailed analytics dashboard",
-    "/monitor": "Start real-time monitoring",
-    "/report [file]": "Generate analytics report",
-    "/plugins": "List loaded plugins",
-    "/plugins-available": "List available plugins to load",
-    "/plugin-load <name>": "Load a plugin dynamically",
-    "/plugin-unload <name>": "Unload a plugin",
-    "/plugin-info <name>": "Show plugin information",
-    "/new_session": "Session management (create, list, switch, delete)",
-    "/theme <name>": "Change color theme (default/dark/light)",
-    "/save <file>": "Save history to file",
-    "/load_history <file>": "Load history from file",
-    "/help": "Show help for all commands",
-    "/exit": "Save history and exit the REPL",
-}
+def _load_agent_builtin_commands() -> dict[str, str]:
+    """Load agent-visible built-ins from command_executor without lib package init."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "command_executor_for_prompt",
+            Path(__file__).parent / "command_executor.py",
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Failed to create command_executor spec")
+
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.get_agent_builtin_commands()
+    except Exception:
+        # Safe fallback: minimal command set for prompt rendering
+        return {
+            "/help, /h": "Show this help",
+            "/list, /models": "List available Ollama models",
+            "/search <query>": "Search history",
+        }
+
+
+BUILTIN_COMMANDS = _load_agent_builtin_commands()
 
 
 class SystemPromptBuilder:

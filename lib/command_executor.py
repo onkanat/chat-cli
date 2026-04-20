@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import copy
 import importlib.util
-from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 # Load parse_utils directly to avoid lib package initialization
@@ -58,6 +58,86 @@ class CommandResult:
     def __post_init__(self):
         if self.state_changes is None:
             self.state_changes = {}
+
+
+@dataclass(frozen=True)
+class CommandDocEntry:
+    """Documentation metadata for a built-in slash command."""
+
+    section: str
+    usage: str
+    description: str
+    agent_visible: bool = True
+
+
+# ============================================================================
+# COMMAND CATALOG (single source for help + agent-visible built-ins)
+# ============================================================================
+
+# section values are also used by the doc generator script.
+COMMAND_HELP_CATALOG: list[CommandDocEntry] = [
+    CommandDocEntry("model", "/list, /models", "List available Ollama models"),
+    CommandDocEntry("model", "/model", "Interactive model selection"),
+    CommandDocEntry("model", "/load <name>", "Set current model"),
+    CommandDocEntry("model", "/pull <name>", "Download model"),
+    CommandDocEntry("model", "/delete, /rm, /remove <name>", "Delete model"),
+    CommandDocEntry("model", "/run <model> <prompt>", "Run model with prompt", agent_visible=False),
+    CommandDocEntry("model", "/settings", "Configure parameters", agent_visible=False),
+    CommandDocEntry("model", "/theme <name>", "Change theme"),
+    CommandDocEntry("analytics", "/search <query>", "Search history"),
+    CommandDocEntry("analytics", "/clear", "Clear screen"),
+    CommandDocEntry("analytics", "/export <file> [format]", "Export conversation"),
+    CommandDocEntry("analytics", "/stats", "Show statistics"),
+    CommandDocEntry("analytics", "/analytics", "Analytics dashboard"),
+    CommandDocEntry("analytics", "/monitor", "Real-time monitoring"),
+    CommandDocEntry("analytics", "/report [file]", "Generate report"),
+    CommandDocEntry("system", "/plugins", "List loaded plugins"),
+    CommandDocEntry("system", "/plugins-available", "List available plugins"),
+    CommandDocEntry("system", "/plugin-load <name>", "Load plugin"),
+    CommandDocEntry("system", "/plugin-unload <name>", "Unload plugin"),
+    CommandDocEntry("system", "/plugin-info <name>", "Show plugin info"),
+    CommandDocEntry("system", "/save, /save_history <file>", "Save history"),
+    CommandDocEntry("system", "/load_history <file>", "Load history"),
+    CommandDocEntry("system", "/new_session", "Session management", agent_visible=False),
+    CommandDocEntry("system", "/help, /h", "Show this help"),
+    CommandDocEntry("system", "/exit, /quit", "Exit and save", agent_visible=False),
+]
+
+COMMAND_DOC_SECTION_TITLES: dict[str, str] = {
+    "model": "REPL Model Management",
+    "analytics": "REPL Search, Export and Analytics",
+    "system": "REPL Plugin and System Commands",
+}
+
+
+def get_command_doc_sections() -> dict[str, list[CommandDocEntry]]:
+    """Return command catalog grouped by documentation section."""
+    grouped: dict[str, list[CommandDocEntry]] = {
+        key: [] for key in COMMAND_DOC_SECTION_TITLES
+    }
+    for entry in COMMAND_HELP_CATALOG:
+        grouped.setdefault(entry.section, []).append(entry)
+    return grouped
+
+
+def build_help_lines() -> list[str]:
+    """Build unified human help lines from command catalog."""
+    lines = ["Available Commands:"]
+    lines.extend(
+        f"{entry.usage} - {entry.description}"
+        for entry in COMMAND_HELP_CATALOG
+    )
+    return lines
+
+
+def get_agent_builtin_commands() -> dict[str, str]:
+    """Return built-in commands that agent is allowed to use."""
+    out: dict[str, str] = {}
+    for entry in COMMAND_HELP_CATALOG:
+        if not entry.agent_visible:
+            continue
+        out[entry.usage] = entry.description
+    return out
 
 
 # ============================================================================
@@ -514,35 +594,8 @@ def handle_theme(args: list[str], ctx: CommandContext) -> CommandResult:
 
 def handle_help(args: list[str], ctx: CommandContext) -> CommandResult:
     """Handle /help command: show help for all commands."""
-    help_lines = [
-        "Available Commands:",
-        "/list, /models - List available Ollama models",
-        "/model - Interactive model selection",
-        "/load <name> - Set current model",
-        "/pull <name> - Download model",
-        "/delete <name> - Delete model",
-        "/run <model> <prompt> - Run model with prompt",
-        "/settings - Configure parameters",
-        "/search <query> - Search history",
-        "/clear - Clear screen",
-        "/export <file> [format] - Export conversation",
-        "/stats - Show statistics",
-        "/analytics - Analytics dashboard",
-        "/monitor - Real-time monitoring",
-        "/report [file] - Generate report",
-        "/plugins - List loaded plugins",
-        "/plugins-available - List available plugins",
-        "/plugin-load <name> - Load plugin",
-        "/plugin-unload <name> - Unload plugin",
-        "/plugin-info <name> - Show plugin info",
-        "/theme <name> - Change theme",
-        "/save <file> - Save history",
-        "/load_history <file> - Load history",
-        "/new_session - Session management",
-        "/help - Show this help",
-        "/exit - Exit and save",
-    ]
-    
+    help_lines = build_help_lines()
+
     return CommandResult(
         success=True,
         output="\n".join(help_lines),
@@ -573,6 +626,7 @@ COMMAND_HANDLERS: dict[str, callable] = {
     "delete": handle_delete,
     "rm": handle_delete,  # Alias
     "remove": handle_delete,  # Alias
+    "run": handle_run,
     "save": handle_save,
     "save_history": handle_save,  # Alias
     "load_history": handle_load_history,

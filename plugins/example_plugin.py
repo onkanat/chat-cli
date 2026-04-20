@@ -60,22 +60,22 @@ class ExamplePlugin(PluginBase):
 
         # Supported operators
         operators = {
-            ast.Add: operator.add, ast.Sub: operator.sub, 
+            ast.Add: operator.add, ast.Sub: operator.sub,
             ast.Mult: operator.mul, ast.Div: operator.truediv,
             ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
-            ast.Pow: operator.pow, ast.USub: operator.neg, 
+            ast.Pow: operator.pow, ast.USub: operator.neg,
             ast.UAdd: operator.pos
         }
 
         # Supported functions
         functions = {
-            "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos, 
+            "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
             "tan": math.tan, "log": math.log, "log10": math.log10,
             "exp": math.exp, "abs": abs, "ceil": math.ceil, "floor": math.floor
         }
 
         def eval_node(node):
-            if isinstance(node, ast.Constant): # Python 3.8+ handles Num, Str, etc.
+            if isinstance(node, ast.Constant):  # Python 3.8+ handles Num, Str, etc.
                 if isinstance(node.value, (int, float)):
                     return node.value
                 raise ValueError(f"Constant type {type(node.value)} not supported")

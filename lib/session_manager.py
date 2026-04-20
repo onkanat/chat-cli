@@ -98,7 +98,7 @@ def create_session(
         logger.info(f"Created session {session_id}")
     except Exception as e:
         logger.error(f"Failed to create session: {e}")
-        # Proceeding despite error to return ID, though data might be lost? 
+        # Proceeding despite error to return ID, though data might be lost?
         # Best effort.
         pass
 

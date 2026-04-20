@@ -138,6 +138,9 @@ def build_prompt_from_history(
             out_lines.append(f"Shell Command: {cmd}")
             if out:
                 out_lines.append(f"Shell Output: {out}")
+        elif role == "system":
+            text = item.get("text") or item.get("output") or ""
+            out_lines.append(f"[System]: {text}")
         else:
             text = item.get("text") or item.get("output") or ""
             out_lines.append(f"{role}: {text}")
@@ -239,6 +242,9 @@ def build_messages_from_history(
             msgs.append({"role": "user", "content": f"Shell command executed: {cmd}"})
             if out:
                 msgs.append({"role": "user", "content": "Shell output:\n" + out})
+        elif role == "system":
+            text = item.get("text") or item.get("output") or ""
+            msgs.append({"role": "user", "content": f"[System]: {text}"})
         else:
             text = item.get("text") or item.get("output") or ""
             msgs.append({"role": "user", "content": text})
